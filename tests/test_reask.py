@@ -10,15 +10,17 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 from PIL import Image
 
 from papereyes.config.loader import load_formpack, load_pipeline
 from papereyes.config.models import PictureSignatureLocator
+from papereyes.pipeline.client import ModelResult
 from papereyes.pipeline.locate import crop_region, fallback_match
 from papereyes.pipeline.ocr import LOC_SCALE, Page
-from papereyes.pipeline.run import _normalize_id_value, _set_path, run_pipeline
+from papereyes.pipeline.run import RunResult, _normalize_id_value, _set_path, run_pipeline
 from papereyes.synth.generator import synth_corpus
 from tests.pipeline_support import PERSONA01_EXTRACTION, StubModelClient
 
@@ -36,7 +38,7 @@ def _persona01_scan(tmp_path: Path) -> Path:
     return golden / "persona-01.pdf"
 
 
-def _reask_calls(result) -> list[dict]:
+def _reask_calls(result: RunResult) -> list[dict[str, Any]]:
     return [
         c for c in result.provenance["model_calls"] if c["kind"] in ("reask", "reask_cell")
     ]
@@ -45,9 +47,9 @@ def _reask_calls(result) -> list[dict]:
 class CellStub(StubModelClient):
     """Answers the per-box single-character prompt from a queue; parent default otherwise."""
 
-    def read_region(self, prompt: str, image_png: bytes, *, max_tokens: int):
-        from papereyes.pipeline.client import ModelResult
+    cells: list[str]
 
+    def read_region(self, prompt: str, image_png: bytes, *, max_tokens: int) -> ModelResult:
         cells = getattr(self, "cells", [])
         if "single character" in prompt and cells:
             self.region_prompts.append(prompt)
@@ -65,7 +67,7 @@ def test_normalize_id_value() -> None:
 
 
 def test_set_path_dict_and_list_hops() -> None:
-    obj = {"claimant": {"nino": "X"}, "children": [{"date_of_birth": "1"}]}
+    obj: dict[str, Any] = {"claimant": {"nino": "X"}, "children": [{"date_of_birth": "1"}]}
     _set_path(obj, "claimant.nino", "BN605990B")
     _set_path(obj, "children[0].date_of_birth", "2020-01-01")
     assert obj["claimant"]["nino"] == "BN605990B"
