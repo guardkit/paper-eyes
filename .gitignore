@@ -1,0 +1,59 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+downloads/
+*.egg-info/
+*.egg
+
+# Unit test / coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+.pytest_cache/
+
+# Environments
+.env
+.envrc
+.venv
+env/
+venv/
+ENV/
+
+# mypy / ruff / type caches
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
+
+# guardkit private dev tooling — never ships in the public tree
+.claude/
+.guardkit/
+
+# ── Paper Eyes runtime + regenerable artifacts ──────────────────────────────────────
+# NEVER commit rendered form scans. Rasterised public-form pages can carry departmental
+# crests/logos/Royal Arms, which OGL v3 excludes from the licence. Golden scans regenerate
+# locally from committed persona seeds (`papereyes synth --seed`); only the expected JSONs,
+# seeds, and baselines are committed. This is a load-bearing leakage rule, not tidiness.
+formpacks/**/golden/*.pdf
+formpacks/**/golden/*.png
+formpacks/**/golden/*.jpg
+formpacks/**/golden/*.jpeg
+formpacks/**/golden/*.tif
+formpacks/**/golden/*.tiff
+
+# Fetched blank forms — pinned by URL+sha256 in the formpack, fetched at build, never vendored.
+build/
+/forms/
+
+# Pipeline working directory (crops, provenance, processed/failed trees) — user data.
+/work/
+/drop/
+/agents/

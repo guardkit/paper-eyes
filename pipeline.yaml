@@ -1,0 +1,46 @@
+# Paper Eyes — global pipeline config (design spec §4.2). Pure data, yaml.safe_load only.
+#
+# One OpenAI-compatible endpoint serves both models; the model NAME routes (llama-swap loads
+# and unloads on demand per request's `model` field). No model call is made at Stage 0-1 —
+# this file is validated as data by `papereyes check pipeline.yaml`.
+
+endpoint:
+  # Resolved at run time; ${VAR:-default} template. The served endpoint on the fleet is
+  # http://localhost:9000/v1; the demo compose overrides this to host.docker.internal.
+  base_url: "${PAPEREYES_OPENAI_BASE_URL:-http://localhost:9000/v1}"
+
+models:
+  # Pins confirmed against the live served inventory (localhost:9000/v1/models, 2026-07-11).
+  vlm: granite-vision-4-1-4b
+  extract: qwen36-workhorse
+
+decoding:
+  # Applied to EVERY model call — region VLM re-reads AND the extraction call. Single source
+  # of truth; recorded per-call in provenance.json.
+  temperature: 0.0
+  seed: 42
+
+# The determinism serving assumption, recorded honestly (stated on screen in the receipt):
+# temp-0 byte-determinism on llama.cpp/llama-swap additionally requires sequential requests
+# against a single-slot server — continuous batching with concurrent requests can perturb
+# outputs. Paper Eyes issues model calls strictly sequentially; determinism receipts assume
+# no other client shares the endpoint during the run.
+serving_note: "sequential single-slot requests assumed for determinism"
+
+identify:
+  # The cheap, formpack-independent routing pass: rasterise the first N pages at fixed
+  # defaults and run plain OCR (no Docling, no layout model) to match identify patterns.
+  pages: 2
+  dpi: 150
+
+emit:
+  # The deckhand agent inbox the report + sidecar are dropped into (a shared volume). The
+  # composed end-to-end demo overrides this to a move-first producer (doc-router); the Lane 1
+  # standalone default is the title_tag clerk shipped in examples/paper-clerk.
+  agent_inbox: /agents/paper-clerk/inbox
+
+watch:
+  drop_dir: /drop
+  poll_seconds: 2.0
+  on_success: move_to_processed
+  on_failure: move_to_failed

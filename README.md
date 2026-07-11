@@ -1,0 +1,86 @@
+# Paper Eyes
+
+A self-contained, local-first pipeline that turns a scanned / image-only PDF of a **known
+public form** into deterministic structured JSON, and drops a human-legible extraction report
+into a [deckhand](https://github.com/guardkit/deckhand) agent's `inbox/`. deckhand's watch
+daemon, review UI, ledger and trust engine then do what they already do — propose, let the
+human approve / correct / reject, advance the streak. Paper Eyes changes nothing inside
+deckhand: the integration seam is files on disk, and this package imports zero deckhand code.
+
+Per-form-type calibration — region locators, VLM prompts, the extraction schema, the golden
+docs — is pure YAML data called a **formpack**. Adding a form family is a data change, never a
+code change.
+
+> Status: early build. Stages 0-1 (scaffold + config-as-data + synthetic corpus) are in place;
+> the OCR / VLM pipeline, the accuracy gate, and the watch/emit daemon land in later stages.
+
+## The shape
+
+```
+drop/ scan.pdf
+   -> identify (cheap, formpack-independent routing)
+   -> Docling StandardPdfPipeline (Tesseract OCR + layout + tables), run once
+   -> per-region VLM re-read of the regions the layout model misroutes
+   -> splice the VLM text back into the markdown
+   -> deterministic text -> JSON (pinned decoding, response_format json_schema)
+   -> atomic emit into a deckhand agent's inbox/ (report .txt + .extraction.json sidecar)
+```
+
+## Install & try (Stages 0-1)
+
+```bash
+uv sync
+uv run papereyes version
+uv run papereyes check formpacks/uk-ch2        # validate a formpack as data
+uv run papereyes init formpacks/uk-myform      # scaffold a new formpack
+uv run papereyes synth uk-ch2 --count 6 --seed 7   # regenerate the golden corpus (Stage 1)
+```
+
+`papereyes synth` needs the poppler `pdftoppm` binary for rasterising
+(`sudo apt-get install poppler-utils` on Debian/Ubuntu; `brew install poppler` on macOS).
+
+## What ships, and what does not
+
+Formpacks commit **persona seeds, expected-JSON ground truth, and the form URL + sha256 pin**.
+They do **not** commit rendered scan pages: rasterised public-form pages can carry departmental
+crests, logos and the Royal Arms, which the Open Government Licence v3 excludes from its grant.
+The golden scans regenerate locally and deterministically from the committed seeds
+(`papereyes synth --seed`); a `.gitignore` rule and a test keep scan PDFs/PNGs out of history.
+
+The default synthetic corpus is **rendered from scratch** (a form-shaped document drawn with
+reportlab and seeded personas), so no Crown-copyright pixels are ever reproduced. A higher
+-fidelity `overlay` mode (fill the fetched real blank) exists but is never used for the
+committed goldens.
+
+## Attribution
+
+The **HMRC CH2 (Child Benefit claim)** form family is modelled under the terms of the
+[Open Government Licence v3](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)
+(Crown copyright). The blank form is fetched at build time by URL with a sha256 pin and is never
+vendored into this repository; departmental crests / logos / the Royal Arms are outside the OGL
+grant and are never reproduced.
+
+## Honesty
+
+Deliberately bounded language, enforced by a CI grep-lint (`ci/honesty_denylist.txt`):
+
+- Paper Eyes makes **no network calls except to the configured model endpoint, which is
+  recorded in every provenance sidecar.** Nothing else leaves the machine.
+- Paper Eyes' own logs (`processed.jsonl` and the like) are **plain receipt files**. The
+  hash-chained, tamper-evident ledger belongs to deckhand alone; Paper Eyes never claims that
+  property for its own records.
+- Accuracy is stated only as *"X% field-level accuracy on N golden synthetic scans of form Y"*;
+  determinism only under the stated sequential, single-slot serving condition. Paper Eyes reads
+  formpack-calibrated typed/printed forms — never "any form", never handwriting.
+
+## Leakage law
+
+Every shipped calibration value is derived fresh against the public-form synthetic corpus. A CI
+deny-list (`ci/leakage_denylist.txt`) fails the build on any engagement-derived token from the
+reference client pipeline appearing in `src/`, `formpacks/`, `docs/` or `tests/`. Run it
+directly with `uv run python -m papereyes.gates`.
+
+## Licence
+
+MIT (this code) — see [LICENSE](LICENSE). Modelled public forms carry their own Crown-copyright
+/ OGL terms, noted per formpack.

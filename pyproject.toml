@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "paper-eyes"
+version = "0.1.0"
+description = "Local-first scanned-document intake pipeline that turns image-only public-form PDFs into deterministic structured JSON and drops a review report into a deckhand agent's inbox."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Richard Woollcott" }]
+keywords = ["ocr", "docling", "formpack", "local-first", "deckhand"]
+# Runtime deps for Stages 0-1 only (scaffold + config-as-data + synthetic corpus).
+# The pipeline weight (docling, tesseract bindings) is deliberately NOT here yet — it
+# lands with Stage 2 so the scaffold stays light and the synth corpus needs no OCR stack.
+dependencies = [
+    "pydantic>=2.6,<3",
+    "pyyaml>=6.0,<7",
+    # Synthetic corpus generation (Stage 1): seeded personas -> reportlab-rendered form
+    # -> rasterised, image-only PDF. Faker gives seeded, locale-correct synthetic people;
+    # reportlab draws the synthetic form; pdftoppm (poppler, a system binary) rasterises;
+    # img2pdf losslessly wraps the page rasters into an image-only PDF; Pillow normalises
+    # the rasters for deterministic bytes.
+    "faker>=25,<38",
+    "reportlab>=4,<5",
+    "img2pdf>=0.5,<1",
+    "pillow>=10,<12",
+]
+
+[project.scripts]
+papereyes = "papereyes.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/papereyes"]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.11", "types-pyyaml>=6.0"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# En/em dashes and § are used deliberately in docstrings to mirror the spec prose.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+# These three ship no type information; the calls into them are thin and localised to
+# the synth/fetch modules, whose own signatures are fully typed.
+module = ["reportlab.*", "img2pdf", "faker.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]

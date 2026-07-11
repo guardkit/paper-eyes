@@ -1,0 +1,18 @@
+# Paper Eyes — honesty grep-lint deny-list (master plan §7; design spec §9).
+#
+# Each non-comment, non-blank line is a case-insensitive regex. A match anywhere under
+# src/, formpacks/, docs/, tests/ or README.md FAILS the build. This file is excluded from
+# its own scan.
+#
+# These phrases may NEVER be claimed. Required substitutions live in the README/docs:
+#   - not "injection-proof"      -> "resists this probe (resistance-awareness, not proof)"
+#   - not "tamper-proof"         -> Paper Eyes' own logs are plain receipt files
+#   - not bare "zero-egress"     -> "no network calls except the configured model endpoint,
+#                                    which is recorded in every provenance sidecar"
+#   - not "secure by construction" / "compliant".
+
+injection[\s_-]?proof
+secure by construction
+\bcomplian(?:t|ce)\b
+tamper[\s_-]?proof
+\bzero[\s_-]?egress\b

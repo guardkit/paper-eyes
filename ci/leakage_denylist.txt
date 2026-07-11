@@ -1,0 +1,31 @@
+# Paper Eyes — client-leakage deny-list (design spec §6 Stage 0; master plan §7).
+#
+# Each non-comment, non-blank line is a case-insensitive regex. A match anywhere under
+# src/, formpacks/, docs/ or tests/ FAILS the build. This file is the ONLY path excluded
+# from its own scan (it lives under ci/, which is not a scanned root either).
+#
+# It is the mechanical enforcement of the leakage law: the reference engagement pipeline
+# may be read for MECHANISM ONLY — no code, comment, identifier, prompt, regex, crop
+# fraction, or persona from it may be pasted or transliterated here. Every shipped
+# calibration value is derived fresh against the public-form synthetic corpus.
+#
+# Confidential client/brand proper-nouns are written split by a non-word class ([\W_]*) so
+# the guard catches them (and their spacing/casing variants) WITHOUT the literal identity
+# string ever appearing in the repo. Public-domain domain indicators (the UK legal terms of
+# the reference engagement) are written readably.
+
+# --- confidential client / brand identities (obfuscated: no literal string in-repo) ---
+\bfin[\W_]*proxy\b
+\bash[\W_]*worth\b
+\bfair[\W_]*fax\b
+\bpen[\W_]*gelly\b
+
+# --- public-domain engagement-domain indicators (readable) ---
+\bLP1F\b
+\bOPG\b
+\bLPA\b
+\bdonor\b
+\battorney\b
+
+# --- reference-engagement synthetic smoke personas ---
+smoke-[0-9]

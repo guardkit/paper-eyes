@@ -1,0 +1,14 @@
+# Malformed: the required `extraction` block is absent.
+formpack: demo-form
+version: 1
+display_name: "Demo"
+source_form:
+  url: "https://example.gov/x.pdf"
+  licence: "OGL v3"
+identify:
+  all_of_patterns: ["(?i)demo"]
+report:
+  headline_fields: ["a.b"]
+golden:
+  field_accuracy_floor: 0.95
+  required_fields: ["a.b"]

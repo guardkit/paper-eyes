@@ -1,0 +1,18 @@
+# Malformed: an accuracy floor above 1.0 (must be a fraction in [0, 1]).
+formpack: demo-form
+version: 1
+display_name: "Demo"
+source_form:
+  url: "https://example.gov/x.pdf"
+  licence: "OGL v3"
+identify:
+  all_of_patterns: ["(?i)demo"]
+extraction:
+  schema: schema.json
+  system_prompt: "Extract JSON."
+  max_tokens: 4096
+report:
+  headline_fields: ["a.b"]
+golden:
+  field_accuracy_floor: 1.5
+  required_fields: ["a.b"]

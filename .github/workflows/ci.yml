@@ -1,0 +1,43 @@
+name: CI
+
+# The gate that keeps Paper Eyes honest on every push/PR: the client-leakage + honesty
+# grep-lint FIRST (a required gate before anything ships), then lint, strict types, and the
+# whole test suite — which INCLUDES the config-is-data grep-lint and the check/synth gates.
+# No live model is required at Stage 0-1; the synth corpus is deterministic and offline.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Sync (locked deps)
+        run: uv sync --frozen
+
+      - name: Leakage + honesty gate (required, runs first)
+        run: uv run python -m papereyes.gates
+
+      - name: Rasteriser for the synth corpus (poppler)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
+      - name: Ruff
+        run: uv run ruff check
+
+      - name: Mypy (strict)
+        run: uv run mypy
+
+      - name: Tests (incl. config-is-data grep-lint + synth determinism)
+        run: uv run pytest -q

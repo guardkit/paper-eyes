@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["applicant"],
+  "properties": {
+    "applicant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["full_name", "reference"],
+      "properties": {
+        "full_name": { "type": "string" },
+        "reference": { "type": "string" }
+      }
+    }
+  }
+}
