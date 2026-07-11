@@ -1,0 +1,54 @@
+# Calibration anchors for the evaluator's self-test (deckhand gate contract §1.3 / §1.5), keyed by
+# the input_ref each config anchor points at. Each entry is the SOURCE the clerk worked from and the
+# CANDIDATE output the owner scored — one clearly failing, one clearly passing per criterion. These
+# are data: opaque text the evaluator scores, never rendered through a template. All personas are
+# synthetic (the uk-ch2 golden corpus); nothing client-derived.
+
+"fields_cited_from_report:fail":
+  source: |-
+    HMRC CH2 — Child Benefit claim — extracted from scan persona-01.pdf
+    full_name Brandon Thomas | nino BN605990B | date_of_birth 1989-08-25 | full_name Joel Thomas
+  candidate: >-
+    title: CH2 claim for the Thomas family — self-employed, higher-rate taxpayer | tags: ch2,
+    self-employed, higher-rate
+    (invents an employment status and a tax band that appear nowhere in the report)
+
+"fields_cited_from_report:pass":
+  source: |-
+    HMRC CH2 — Child Benefit claim — extracted from scan persona-01.pdf
+    full_name Brandon Thomas | nino BN605990B | date_of_birth 1989-08-25 | full_name Joel Thomas
+  candidate: >-
+    title: CH2 Child Benefit claim — Brandon Thomas | tags: ch2, child-benefit, hmrc
+    (every field is taken directly from the report header)
+
+"right_folder_for_form_family:fail":
+  source: |-
+    HMRC CH2 — Child Benefit claim — extracted from scan persona-03.pdf
+    full_name Yvonne Taylor | nino CZ698875C | date_of_birth 1970-11-12 | full_name George Taylor
+  candidate: >-
+    folder: expenses
+    (a Child Benefit claim filed under expenses instead of the child-benefit folder)
+
+"right_folder_for_form_family:pass":
+  source: |-
+    HMRC CH2 — Child Benefit claim — extracted from scan persona-03.pdf
+    full_name Yvonne Taylor | nino CZ698875C | date_of_birth 1970-11-12 | full_name George Taylor
+  candidate: >-
+    folder: child-benefit
+    (the closest form-family folder in the owner's scheme for a CH2 claim)
+
+"no_pii_in_tags:fail":
+  source: |-
+    HMRC CH2 — Child Benefit claim — extracted from scan persona-02.pdf
+    full_name Terence Campbell | nino NP727337B | date_of_birth 2001-10-13 | full_name Dennis Campbell
+  candidate: >-
+    title: CH2 claim | tags: ch2, NP727337B, 2001-10-13, WA3 5WA
+    (copies the NINO, date of birth and postcode verbatim into the tags)
+
+"no_pii_in_tags:pass":
+  source: |-
+    HMRC CH2 — Child Benefit claim — extracted from scan persona-02.pdf
+    full_name Terence Campbell | nino NP727337B | date_of_birth 2001-10-13 | full_name Dennis Campbell
+  candidate: >-
+    title: CH2 Child Benefit claim — Terence Campbell | tags: ch2, child-benefit, hmrc
+    (files the claim without copying the NINO, date of birth or postcode into the tags)

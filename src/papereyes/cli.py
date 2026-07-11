@@ -16,9 +16,12 @@ Stage 0-1 surface (design spec §2 IN, §6):
   pipeline on one scan against the real served models: report + ``.extraction.json`` + provenance.
 - ``papereyes gate FORMPACK [--workdir DIR --region-model M --no-baseline]`` — the extraction
   gate: score every golden scan end-to-end, print the diff table, freeze ``formpack.baseline.json``.
-
-``watch`` lands in Stage 4; it is not wired here so nothing advertises a capability that does
-not yet exist.
+- ``papereyes watch [--once] [--drop DIR --inbox DIR --workdir DIR ...]`` — the drop-folder daemon:
+  watch ``drop/`` for scanned PDFs, run the pipeline, and atomically emit the report + sidecar into
+  the configured deckhand agent ``inbox/`` (design spec §3, §6 Stage 4).
+- ``papereyes run SCAN --emit [--force]`` — additionally emit the report + sidecar atomically into
+  the configured agent ``inbox/``; ``--force`` re-emits a byte-identical report for an
+  already-emitted scan (the deckhand-side ledger-idempotency receipt, §6 Stage 4 gate (b)).
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from papereyes import __version__
 from papereyes.config.loader import load_formpack
@@ -153,13 +157,21 @@ def _build_client(pipeline_path: str, region_model: str | None):  # type: ignore
     return pipeline_cfg, client
 
 
+def _resolve_inbox(pipeline_cfg: Any, inbox: str | None) -> Path:
+    """The agent inbox the emit lands in: an explicit ``--inbox`` override, else the pipeline's
+    ``emit.agent_inbox`` (the standalone default is ``examples/paper-clerk``'s inbox; the composed
+    demo repoints this at a move-first producer with a config value, no code change — SM-1)."""
+    return Path(inbox) if inbox else Path(pipeline_cfg.emit.agent_inbox)
+
+
 def _cmd_run(
     scan: str, target: str, *, workdir: str, out: str | None, region_model: str | None,
-    pipeline_path: str,
+    pipeline_path: str, emit: bool, force: bool, inbox: str | None,
 ) -> int:
     import json
 
     from papereyes.pipeline.run import run_pipeline
+    from papereyes.watch.emit import atomic_emit
 
     run_workdir = Path(workdir) / Path(scan).stem
     try:
@@ -188,6 +200,19 @@ def _cmd_run(
     print(f"    provenance -> {run_workdir / 'provenance.json'}")
     print(f"    regions triggered: {', '.join(result.provenance['regions_triggered']) or 'none'}")
     print(f"    total time: {result.provenance['timings_s'].get('total')}s")
+
+    if emit or force:
+        inbox_dir = _resolve_inbox(pipeline_cfg, inbox)
+        outcome = atomic_emit(
+            inbox_dir, result.report_name, result.report_text, result.extraction
+        )
+        if outcome.status == "collision":
+            # Never overwrite an existing report with differing bytes (§3.1 #4).
+            print(f"emit REFUSED: {outcome.detail}", file=sys.stderr)
+            return 1
+        verb = {"emitted": "emitted", "identical": "re-emitted (byte-identical)"}[outcome.status]
+        print(f"    {verb} -> {outcome.report_path}")
+        print(f"    sidecar    -> {outcome.sidecar_path}")
     return 0
 
 
@@ -216,6 +241,57 @@ def _cmd_gate(
         print("gate FAILED: floor not met or a required field missing — baseline NOT frozen",
               file=sys.stderr)
     return 0 if result.passed else 1
+
+
+def _cmd_watch(
+    target: str, *, drop: str | None, inbox: str | None, workdir: str, region_model: str | None,
+    pipeline_path: str, once: bool,
+) -> int:
+    from papereyes.watch.daemon import (
+        DEFAULT_POLL_SECONDS,
+        WatchContext,
+        run_watch_cycle,
+        watch_forever,
+    )
+
+    try:
+        pipeline_cfg, client = _build_client(pipeline_path, region_model)
+        formpack_dir = _resolve_formpack_dir(target)
+        formpack = load_formpack(formpack_dir)
+    except (PaperEyesError, OSError) as exc:
+        print(f"watch FAILED: {exc}", file=sys.stderr)
+        return 1
+
+    drop_dir = Path(drop) if drop else Path(pipeline_cfg.watch.drop_dir)
+    inbox_dir = _resolve_inbox(pipeline_cfg, inbox)
+    poll = pipeline_cfg.watch.poll_seconds or DEFAULT_POLL_SECONDS
+    ctx = WatchContext(
+        formpack=formpack,
+        formpack_dir=formpack_dir,
+        pipeline_cfg=pipeline_cfg,
+        client=client,
+        drop_dir=drop_dir,
+        inbox_dir=inbox_dir,
+        workdir=Path(workdir),
+        region_model=region_model,
+    )
+    print(f"watch {formpack.slug()}: {drop_dir} -> {inbox_dir}")
+    if once:
+        result = run_watch_cycle(ctx)
+        for o in result.outcomes:
+            detail = f" — {o.detail}" if o.detail else ""
+            name = o.report_name or "-"
+            print(f"    [{o.status}] {o.scan_name} -> {name}{detail}")
+        print(
+            f"cycle: {result.emitted()} emitted, {result.skipped()} skipped, "
+            f"{result.failed()} failed"
+        )
+        return 0
+    try:
+        watch_forever(ctx, poll_seconds=poll)
+    except KeyboardInterrupt:  # pragma: no cover - interactive stop
+        print("watch stopped.", file=sys.stderr)
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -272,6 +348,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="override the per-region VLM (e.g. when the pinned VLM is unavailable on the fleet)",
     )
     run.add_argument("--pipeline", default="pipeline.yaml", help="pipeline config path")
+    run.add_argument(
+        "--emit", action="store_true",
+        help="atomically emit the report + sidecar into the configured agent inbox",
+    )
+    run.add_argument(
+        "--force", action="store_true",
+        help="re-emit a byte-identical report for an already-emitted scan (implies --emit; the "
+             "ledger-idempotency receipt). Never overwrites a report that differs in bytes.",
+    )
+    run.add_argument(
+        "--inbox", default=None,
+        help="override the agent inbox to emit into (default: pipeline emit.agent_inbox)",
+    )
 
     gate = sub.add_parser("gate", help="score every golden scan end-to-end; freeze the baseline")
     gate.add_argument("formpack", help="a formpack dir, or a bare name under formpacks/")
@@ -283,6 +372,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--no-baseline", dest="freeze", action="store_false", help="do not freeze the baseline"
     )
     gate.add_argument("--pipeline", default="pipeline.yaml", help="pipeline config path")
+
+    watch = sub.add_parser(
+        "watch", help="watch a drop folder for scans; emit reports into a deckhand agent inbox"
+    )
+    watch.add_argument("--formpack", default="uk-ch2", help="formpack dir/name (default: uk-ch2)")
+    watch.add_argument("--drop", default=None, help="drop dir to watch (default: watch.drop_dir)")
+    watch.add_argument(
+        "--inbox", default=None, help="agent inbox to emit into (default: emit.agent_inbox)"
+    )
+    watch.add_argument("--workdir", default="work", help="pipeline workdir (default: work)")
+    watch.add_argument(
+        "--region-model", default=None, help="override the per-region VLM (fleet fallback)"
+    )
+    watch.add_argument("--pipeline", default="pipeline.yaml", help="pipeline config path")
+    watch.add_argument(
+        "--once", action="store_true", help="process the drop folder once and exit (no polling)"
+    )
 
     args = parser.parse_args(argv)
     if args.command == "version":
@@ -307,11 +413,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_run(
             args.scan, args.formpack, workdir=args.workdir, out=args.out,
             region_model=args.region_model, pipeline_path=args.pipeline,
+            emit=args.emit, force=args.force, inbox=args.inbox,
         )
     if args.command == "gate":
         return _cmd_gate(
             args.formpack, workdir=args.workdir, region_model=args.region_model,
             freeze=args.freeze, pipeline_path=args.pipeline,
+        )
+    if args.command == "watch":
+        return _cmd_watch(
+            args.formpack, drop=args.drop, inbox=args.inbox, workdir=args.workdir,
+            region_model=args.region_model, pipeline_path=args.pipeline, once=args.once,
         )
     parser.print_help()
     return 0

@@ -4,8 +4,9 @@ Two mechanical guards, both driven by pattern files under ``ci/`` (design spec �
 master plan §7):
 
 - **leakage** — fails on any engagement-derived token (from the reference client pipeline)
-  appearing in ``src/``, ``formpacks/``, ``docs/`` or ``tests/``. Every shipped calibration
-  value must be derived fresh on public forms; this catches a paste or transliteration.
+  appearing in any scanned tree (``src/``, ``formpacks/``, ``docs/``, ``tests/``, ``examples/``,
+  ``demo/``). Every shipped calibration value must be derived fresh on public forms; this catches
+  a paste or transliteration — including into the shipped example agent and the demo scripts.
 - **honesty** — fails on the banned overclaim phrases enumerated in
   ``ci/honesty_denylist.txt`` (over-strong safety and correctness assertions the project
   has committed never to make).
@@ -26,9 +27,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 LEAKAGE_DENYLIST = REPO_ROOT / "ci" / "leakage_denylist.txt"
 HONESTY_DENYLIST = REPO_ROOT / "ci" / "honesty_denylist.txt"
 
-# The four trees the leakage gate scans (design spec §6 Stage 0). The honesty gate scans the
-# same trees plus the top-level README.
-SCANNED_DIRS = ("src", "formpacks", "docs", "tests")
+# The trees the leakage gate scans (design spec §6 Stage 0), widened at Stage 4 to include the
+# shipped example agent (``examples/``) and the demo scripts (``demo/``) — both are filmable
+# surfaces the honesty + leakage laws must cover. The honesty gate scans the same trees plus the
+# top-level README. Non-existent roots are skipped, so this list is safe before those dirs land.
+SCANNED_DIRS = ("src", "formpacks", "docs", "tests", "examples", "demo")
 
 # File suffixes worth scanning — text the build ships. Binary assets are skipped.
 _TEXT_SUFFIXES = {
