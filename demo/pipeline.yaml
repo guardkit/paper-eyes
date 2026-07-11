@@ -1,0 +1,45 @@
+# Paper Eyes — the COMPOSED end-to-end demo's pipeline config (master plan §2.1, §2.2 SM-1).
+#
+# Identical to the repo-root pipeline.yaml EXCEPT `emit.agent_inbox`: the composed chain points the
+# emit at a MOVE-first producer (doc-router) instead of the title_tag-first paper-clerk, so an
+# approved filing lands in outbox/reports/ and the relay fires (SM-1 is a config value — no code
+# change). `demo/verify_chain.sh --stub` overrides the inbox on the CLI to a host tmp path; the
+# `docker compose` chain path uses the container-absolute `/agents/doc-router/inbox` below.
+#
+# Pure data, yaml.safe_load only — `papereyes check demo/pipeline.yaml` validates it. Model pins are
+# binding (build context): docling=granite-docling, vlm=granite-vision-4-1-4b, extract=qwen36-workhorse.
+
+endpoint:
+  base_url: "${PAPEREYES_OPENAI_BASE_URL:-http://localhost:9000/v1}"
+
+models:
+  # The bulk conversion runs on granite-docling (a deviation recorded in every provenance sidecar;
+  # see the repo-root pipeline.yaml for why); the per-region re-read and the extractor are the pins.
+  docling: granite-docling
+  vlm: granite-vision-4-1-4b
+  extract: qwen36-workhorse
+
+decoding:
+  temperature: 0.0
+  seed: 42
+
+# Determinism is claimed only under the stated serving condition (sequential, single-slot); the
+# receipt states this on screen rather than reshooting silently.
+serving_note: "sequential single-slot requests assumed for determinism"
+
+identify:
+  pages: 2
+  dpi: 150
+
+emit:
+  # SM-1: the composed demo emits into the move-first producer's inbox. doc-router proposes a move
+  # into outbox/reports/, a human approves at :8477, the move executor writes a handoff receipt
+  # before the artifact, and the deterministic relay ferries it to digest-clerk. The Lane 1
+  # standalone default (examples/paper-clerk) stays in the repo-root pipeline.yaml.
+  agent_inbox: /agents/doc-router/inbox
+
+watch:
+  drop_dir: /drop
+  poll_seconds: 2.0
+  on_success: move_to_processed
+  on_failure: move_to_failed

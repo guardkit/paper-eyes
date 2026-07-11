@@ -1,0 +1,69 @@
+# Paper Eyes — the COMPOSED end-to-end demo (master plan §2.1, §3): paper-eyes + deckhand over ONE
+# shared agents/ root, the whole chain in one cold `docker compose up`. This is the composed variant
+# of docker-compose.yml (which runs the STANDALONE paper-clerk lane); both agents ship.
+#
+#   paper-eyes   — watches ./drop, runs the pipeline, and atomically emits the report +
+#                  .extraction.json sidecar into /agents/doc-router/inbox. The SM-1 override is the
+#                  mounted demo/pipeline.yaml (emit.agent_inbox -> /agents/doc-router/inbox) — a
+#                  config value, no code change; it replaces the image's baked-in root pipeline.yaml.
+#   deckhand     — `deckhand serve /agents` (unmodified, built from github.com/guardkit/deckhand):
+#                  a watch-daemon per discovered agent (doc-router, digest-clerk) + the deterministic,
+#                  model-free relay (opt-in by the workflows.yaml present in the agents root) + the
+#                  review UI at http://127.0.0.1:8477. Paper Eyes changes NOTHING inside deckhand.
+#
+# Seed the shared ./agents root first (copy-at-build, NOT a fork of deckhand's configs) — the demo
+# reuses deckhand's shipped examples/relay-demo agents + workflows.yaml verbatim:
+#
+#   demo/verify_chain.sh --live      # seeds ./agents, gates doc-router, then drives the chain
+#   # or by hand:
+#   mkdir -p demo/agents
+#   cp -r ../deckhand/examples/relay-demo/doc-router  demo/agents/
+#   cp -r ../deckhand/examples/relay-demo/digest-clerk demo/agents/
+#   cp    ../deckhand/examples/relay-demo/workflows.yaml demo/agents/
+#   rm -f demo/agents/doc-router/inbox/*   # start the inbox clean
+#
+# What you touch: `cp ch2-scan.pdf demo/drop/`, then approve the move at http://127.0.0.1:8477.
+# The model is a URL — point both services at your host's OpenAI-compatible server (no network calls
+# except that endpoint, which is recorded in every provenance sidecar).
+
+services:
+  paper-eyes:
+    build:
+      context: ..                 # the repo root (this compose file lives in demo/)
+      dockerfile: demo/Dockerfile
+    image: paper-eyes:local
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    volumes:
+      - ./drop:/drop              # drop scans here (host) — the daemon watches it
+      - ./agents:/agents          # the shared agents root — reports land in doc-router/inbox
+      - ./work:/work              # crops + provenance + processed.jsonl (paper-eyes' own workdir)
+      # SM-1: the composed emit override. Mounts over the image's baked root pipeline.yaml so the
+      # daemon reads emit.agent_inbox=/agents/doc-router/inbox (a move-first producer) — no rebuild.
+      - ./pipeline.yaml:/app/pipeline.yaml:ro
+    environment:
+      PAPEREYES_OPENAI_BASE_URL: "${PAPEREYES_OPENAI_BASE_URL:-http://host.docker.internal:9000/v1}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  deckhand:
+    build:
+      # Built from source so `docker compose up --build` is self-contained; pin main.
+      context: "https://github.com/guardkit/deckhand.git#main"
+    image: deckhand:paper-eyes-demo
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    ports:
+      # host loopback only -> container UI. Change the left side to 0.0.0.0:8477 ONLY if you intend
+      # to expose the review UI on your network (you become responsible for who reaches it).
+      - "127.0.0.1:8477:8477"
+    volumes:
+      - ./agents:/agents          # the SAME shared agents root paper-eyes emits into (+ workflows.yaml)
+    environment:
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-http://host.docker.internal:9000/v1}"
+      # The named reviewer whose approvals earn trust (trust-ledger §3.3) — pinned everywhere (SM-6).
+      DECKHAND_OPERATOR: "${DECKHAND_OPERATOR:-owner@localhost}"
+      DECKHAND_UI_HOST: "0.0.0.0"
+      DECKHAND_UI_PORT: "8477"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
