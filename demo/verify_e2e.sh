@@ -124,9 +124,14 @@ run_live() {
   say "seed the paper-clerk agent + gate it (freezes baseline.json — the gate-to-exist receipt)"
   mkdir -p "$agents" "$drop" "$pe_work"
   rm -rf "$adir"; cp -r "$REPO_ROOT/examples/paper-clerk" "$adir"
+  # The shipped example keeps the generic 'qwen3-8b — set to whatever your server serves' default;
+  # DEMO INSTANCES pin the served fleet alias (plan §5 decision Q2). Patch the runtime copy only.
+  sed -i "s/^  model_id: .*/  model_id: ${DEMO_MODEL:-qwen36-workhorse}/" "$adir/config.yaml"
   # `deckhand gate` scores the golden set with the real model, then freezes baseline.json into the
-  # agent dir so a cold run records a NON-`unbaselined` baseline_hash. Run it in the deckhand repo.
-  ( cd "${DECKHAND_REPO:-$REPO_ROOT/../deckhand}" && deckhand gate "$adir" --yes )
+  # agent dir so a cold run records a NON-`unbaselined` baseline_hash. Run it in the deckhand repo;
+  # deckhand has no global install — fall back to `uv run deckhand` (DECKHAND_CMD overrides).
+  ( cd "${DECKHAND_REPO:-$REPO_ROOT/../deckhand}" \
+    && ${DECKHAND_CMD:-$(command -v deckhand >/dev/null && echo deckhand || echo "uv run deckhand")} gate "$adir" --yes )
   [ -f "$adir/baseline.json" ] || fail "deckhand gate did not freeze baseline.json"
 
   say "cold docker compose up (paper-eyes + the unmodified deckhand)"
