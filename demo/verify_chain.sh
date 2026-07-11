@@ -114,15 +114,16 @@ run_live() {
   local agents="$HERE/agents" drop="$HERE/drop" compose="$HERE/docker-compose.chain.yml"
   export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
 
-  say "seed the shared agents root + gate doc-router/digest-clerk (freeze baselines — gate-to-exist)"
+  say "seed the shared agents root + gate doc-router (freeze its baseline — the gate-to-exist scene)"
   mkdir -p "$agents" "$drop"
   rm -rf "$agents/doc-router" "$agents/digest-clerk" "$agents/workflows.yaml"
   seed_agents "$agents"
-  # The gate scores each golden set with the REAL model and freezes baseline.json so cold-run ledger
-  # events carry a NON-`unbaselined` baseline_hash. (§2.1 step 0 films doc-router being drafted from
-  # examples/filed-history-routes/ in the workbench, corrected, mv'd, then gated — this is that gate.)
+  # §2.1 step 0: doc-router is drafted from examples/filed-history-routes/ in the workbench, corrected,
+  # mv'd to live names, then gated — this IS that gate. It scores the golden set with the REAL model
+  # and freezes baseline.json so cold-run ledger events carry a NON-`unbaselined` baseline_hash. Only
+  # the producer (the clerk the chain runs) is gated here; digest-clerk runs honestly unbaselined and
+  # still proposes at ask tier on arrival (composition granted nothing).
   ( cd "$DECKHAND_REPO" && deckhand gate "$agents/doc-router" --yes )
-  ( cd "$DECKHAND_REPO" && deckhand gate "$agents/digest-clerk" --yes )
   [ -f "$agents/doc-router/baseline.json" ] || fail "doc-router gate did not freeze baseline.json"
 
   say "cold docker compose up (paper-eyes + the unmodified deckhand + the relay)"
