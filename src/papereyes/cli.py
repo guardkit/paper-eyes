@@ -14,6 +14,8 @@ Stage 0-1 surface (design spec §2 IN, §6):
   no blank); the fetched blank is written to a gitignored build dir, never committed.
 - ``papereyes run SCAN [--formpack FP --workdir DIR --out DIR --region-model M]`` — run the
   pipeline on one scan against the real served models: report + ``.extraction.json`` + provenance.
+- ``papereyes gate FORMPACK [--workdir DIR --region-model M --no-baseline]`` — the extraction
+  gate: score every golden scan end-to-end, print the diff table, freeze ``formpack.baseline.json``.
 
 ``watch`` lands in Stage 4; it is not wired here so nothing advertises a capability that does
 not yet exist.
@@ -189,6 +191,33 @@ def _cmd_run(
     return 0
 
 
+def _cmd_gate(
+    target: str, *, workdir: str, region_model: str | None, freeze: bool, pipeline_path: str,
+) -> int:
+    from papereyes.gate import render_diff_table, run_gate, write_baseline
+
+    try:
+        pipeline_cfg, client = _build_client(pipeline_path, region_model)
+        formpack_dir = _resolve_formpack_dir(target)
+        formpack = load_formpack(formpack_dir)
+        result = run_gate(
+            formpack, formpack_dir, pipeline_cfg, client,
+            workdir=Path(workdir), region_model=region_model,
+        )
+    except (PaperEyesError, OSError) as exc:
+        print(f"gate FAILED: {exc}", file=sys.stderr)
+        return 1
+
+    print(render_diff_table(result))
+    if result.passed and freeze:
+        path = write_baseline(formpack_dir, result)
+        print(f"baseline frozen -> {path}")
+    elif not result.passed:
+        print("gate FAILED: floor not met or a required field missing — baseline NOT frozen",
+              file=sys.stderr)
+    return 0 if result.passed else 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="papereyes",
@@ -244,6 +273,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     run.add_argument("--pipeline", default="pipeline.yaml", help="pipeline config path")
 
+    gate = sub.add_parser("gate", help="score every golden scan end-to-end; freeze the baseline")
+    gate.add_argument("formpack", help="a formpack dir, or a bare name under formpacks/")
+    gate.add_argument("--workdir", default="work/gate", help="gate workdir (default: work/gate)")
+    gate.add_argument(
+        "--region-model", default=None, help="override the per-region VLM (fleet fallback)"
+    )
+    gate.add_argument(
+        "--no-baseline", dest="freeze", action="store_false", help="do not freeze the baseline"
+    )
+    gate.add_argument("--pipeline", default="pipeline.yaml", help="pipeline config path")
+
     args = parser.parse_args(argv)
     if args.command == "version":
         return _cmd_version()
@@ -267,6 +307,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_run(
             args.scan, args.formpack, workdir=args.workdir, out=args.out,
             region_model=args.region_model, pipeline_path=args.pipeline,
+        )
+    if args.command == "gate":
+        return _cmd_gate(
+            args.formpack, workdir=args.workdir, region_model=args.region_model,
+            freeze=args.freeze, pipeline_path=args.pipeline,
         )
     parser.print_help()
     return 0

@@ -11,22 +11,25 @@ Per-form-type calibration — region locators, VLM prompts, the extraction schem
 docs — is pure YAML data called a **formpack**. Adding a form family is a data change, never a
 code change.
 
-> Status: early build. Stages 0-1 (scaffold + config-as-data + synthetic corpus) are in place;
-> the OCR / VLM pipeline, the accuracy gate, and the watch/emit daemon land in later stages.
+> Status: mid build. Stages 0-3 are in place — scaffold + config-as-data, the synthetic
+> corpus, the pipeline core (`papereyes run`), and the extraction gate (`papereyes gate`).
+> The watch/emit daemon and the composed deckhand demo land in Stage 4.
 
 ## The shape
 
 ```
 drop/ scan.pdf
-   -> identify (cheap, formpack-independent routing)
-   -> Docling StandardPdfPipeline (Tesseract OCR + layout + tables), run once
-   -> per-region VLM re-read of the regions the layout model misroutes
+   -> identify (cheap, formpack-independent routing; first pages at fixed defaults)
+   -> bulk document conversion, every page exactly once, after routing
+      (design: Docling StandardPdfPipeline — served here by granite-docling, the Docling
+       project's conversion VLM, a recorded deviation: see docs/uk-ch2-calibration-note.md)
+   -> per-region VLM re-read of the regions the bulk pass mishandles (pinned decoding)
    -> splice the VLM text back into the markdown
    -> deterministic text -> JSON (pinned decoding, response_format json_schema)
    -> atomic emit into a deckhand agent's inbox/ (report .txt + .extraction.json sidecar)
 ```
 
-## Install & try (Stages 0-1)
+## Install & try
 
 ```bash
 uv sync
@@ -34,6 +37,10 @@ uv run papereyes version
 uv run papereyes check formpacks/uk-ch2        # validate a formpack as data
 uv run papereyes init formpacks/uk-myform      # scaffold a new formpack
 uv run papereyes synth uk-ch2 --count 6 --seed 7   # regenerate the golden corpus (Stage 1)
+
+# Stages 2-3 need the served models (pipeline.yaml `models:`) reachable at the endpoint:
+uv run papereyes run formpacks/uk-ch2/golden/persona-01.pdf   # one scan -> report + JSON
+uv run papereyes gate formpacks/uk-ch2         # score all goldens; freeze the baseline
 ```
 
 `papereyes synth` needs the poppler `pdftoppm` binary for rasterising
