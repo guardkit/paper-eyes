@@ -386,7 +386,9 @@ def _grid_cells(
                 (round(x1 + i * pitch), max(0, y1 - my),
                  round(x1 + (i + 1) * pitch), min(h, y2 + my))
             )
-            cell = cell.resize((cell.width * upscale, cell.height * upscale), Image.Resampling.LANCZOS)
+            cell = cell.resize(
+                (cell.width * upscale, cell.height * upscale), Image.Resampling.LANCZOS
+            )
             cells.append(_png_bytes(cell))
     return cells
 
