@@ -11,9 +11,10 @@ Per-form-type calibration — region locators, VLM prompts, the extraction schem
 docs — is pure YAML data called a **formpack**. Adding a form family is a data change, never a
 code change.
 
-> Status: mid build. Stages 0-3 are in place — scaffold + config-as-data, the synthetic
-> corpus, the pipeline core (`papereyes run`), and the extraction gate (`papereyes gate`).
-> The watch/emit daemon and the composed deckhand demo land in Stage 4.
+> Status: mid build. Stages 0-4 are in place — scaffold + config-as-data, the synthetic
+> corpus, the pipeline core (`papereyes run`), the extraction gate (`papereyes gate`), and the
+> watch/emit daemon (`papereyes watch`) with the shipped `examples/paper-clerk` deckhand agent and
+> the `demo/` compose (`demo/verify_e2e.sh`). The composed multi-lane demo lands post-Stage-4.
 
 ## The shape
 
@@ -38,9 +39,14 @@ uv run papereyes check formpacks/uk-ch2        # validate a formpack as data
 uv run papereyes init formpacks/uk-myform      # scaffold a new formpack
 uv run papereyes synth uk-ch2 --count 6 --seed 7   # regenerate the golden corpus (Stage 1)
 
-# Stages 2-3 need the served models (pipeline.yaml `models:`) reachable at the endpoint:
+# Stages 2-4 need the served models (pipeline.yaml `models:`) reachable at the endpoint:
 uv run papereyes run formpacks/uk-ch2/golden/persona-01.pdf   # one scan -> report + JSON
 uv run papereyes gate formpacks/uk-ch2         # score all goldens; freeze the baseline
+uv run papereyes watch                         # watch drop/, emit reports into the agent inbox/
+
+# The standalone two-container demo (paper-eyes + the unmodified deckhand) is one cold start:
+cd demo && ./verify_e2e.sh --stub              # hermetic offline plumbing check (no GPU, no docker)
+HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose up --build   # then: cp a CH2 scan into drop/
 ```
 
 `papereyes synth` needs the poppler `pdftoppm` binary for rasterising

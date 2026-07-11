@@ -1,0 +1,56 @@
+# Paper Eyes — the standalone Lane-1 demo (design spec §4.6, §6 Stage 4): the whole thing in one
+# cold `docker compose up`. Two containers over one shared agents/ root:
+#
+#   paper-eyes   — watches ./drop for scanned PDFs, runs the pipeline, atomically emits the report +
+#                  .extraction.json sidecar into ./agents/paper-clerk/inbox (SM-1 default target).
+#   deckhand     — the unmodified review UI + watch-daemon (built from github.com/guardkit/deckhand):
+#                  proposes a title_tag filing of the report, you approve at http://127.0.0.1:8477,
+#                  and it writes the .meta sidecar. Paper Eyes changes NOTHING inside deckhand.
+#
+# What you touch: `cp ch2-scan.pdf drop/`, then review at http://127.0.0.1:8477. Seed the agent first
+# with `cp -r ../examples/paper-clerk agents/` (demo/verify_e2e.sh --live does this for you).
+#
+# The model is a URL. Point both services at your host's OpenAI-compatible server (llama-swap on
+# :9000 here) via OPENAI_BASE_URL / PAPEREYES_OPENAI_BASE_URL. No network calls except that endpoint,
+# which is recorded in every provenance sidecar.
+
+services:
+  paper-eyes:
+    build:
+      context: ..                 # the repo root (this compose file lives in demo/)
+      dockerfile: demo/Dockerfile
+    image: paper-eyes:local
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    volumes:
+      - ./drop:/drop              # drop scans here (host) — the daemon watches it
+      - ./agents:/agents          # the shared agents root — reports land in paper-clerk/inbox
+      - ./work:/work              # crops + provenance + processed.jsonl (paper-eyes' own workdir)
+    environment:
+      # The model endpoint (a URL). host.docker.internal + the host-gateway alias reaches a server
+      # bound on the host (Linux). Override to the demo stub for the offline path.
+      PAPEREYES_OPENAI_BASE_URL: "${PAPEREYES_OPENAI_BASE_URL:-http://host.docker.internal:9000/v1}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  deckhand:
+    build:
+      # Built from source so `docker compose up --build` is self-contained; pin main.
+      context: "https://github.com/guardkit/deckhand.git#main"
+    image: deckhand:paper-eyes-demo
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    ports:
+      # host loopback only -> container UI. Change the left side to 0.0.0.0:8477 ONLY if you intend
+      # to expose the review UI on your network (you become responsible for who reaches it).
+      - "127.0.0.1:8477:8477"
+    volumes:
+      - ./agents:/agents          # the SAME shared agents root paper-eyes emits into
+    environment:
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-http://host.docker.internal:9000/v1}"
+      # The named reviewer whose approvals earn trust (trust-ledger §3.3) — pinned everywhere (SM-6).
+      DECKHAND_OPERATOR: "${DECKHAND_OPERATOR:-owner@localhost}"
+      DECKHAND_UI_HOST: "0.0.0.0"
+      DECKHAND_UI_PORT: "8477"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

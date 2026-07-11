@@ -1,0 +1,30 @@
+# The composed end-to-end demo's workflow contract — COPIED VERBATIM (below the header) from
+# deckhand's shipped `examples/relay-demo/workflows.yaml`. It is the source of truth for SM-4:
+# Paper Eyes' emitted report name `<stem>--<scanSha8>--fp<ver>.txt` MUST pass this contract's
+# `name_pattern`, so the composed chain (doc-router -> relay -> digest-clerk) accepts the report.
+# `tests/test_sm4_name_pattern.py` reads this file and asserts every emitted name matches.
+#
+# This file is NOT used by the STANDALONE paper-clerk demo (that agent is title_tag-first; nothing
+# reaches outbox/, so no relay fires). It is staged here as the composed-demo seed the half-day-4
+# assembly builds on (master plan §3), and as the durable, in-repo home of the contract the SM-4
+# assertion checks. When the composed demo runs, this is copied to the agents root beside the
+# doc-router / digest-clerk configs; the standalone compose mounts only paper-clerk (no relay).
+#
+# The relay loads this with yaml.safe_load, validates it with `deckhand relay-check`, and never
+# executes it. Keep it byte-identical to deckhand's shipped copy (a drift-guard in the SM-4 test
+# checks it against a sibling deckhand checkout when one is present).
+schema_version: 1
+workflows:
+  - id: scan-to-digest
+    description: routed reports flow from doc-router to digest-clerk after a human approves the move
+    hops:
+      - contract: routed-reports        # unique id; the relay log and quarantine key on it
+        producer: doc-router            # agent dir name (must be a discovered agent under this root)
+        route: reports                  # producer's outbox/reports/ — one contract per route
+        consumer: digest-clerk          # delivered to digest-clerk/inbox/
+        artifact:
+          extensions: [".txt", ".pdf"]  # closed list; anything else is quarantined
+          max_bytes: 10485760
+          name_pattern: "^[A-Za-z0-9][A-Za-z0-9._ -]{0,120}$"
+        require_confirmed_receipt: true # the handoff sidecar must name a proposal the producer's
+                                        # ledger shows confirmed (or an auto_action)

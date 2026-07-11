@@ -57,3 +57,10 @@ build/
 /work/
 /drop/
 /agents/
+
+# Demo runtime trees (the compose front door seeds these from examples/ at run time; the shipped
+# example agent itself lives in examples/paper-clerk and IS committed). Never commit demo runtime
+# data — it carries generated ledgers, pending items, reports, and regenerable scans.
+demo/agents/
+demo/drop/
+demo/work/
