@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ── formpack ────────────────────────────────────────────────────────────────────────
 
@@ -80,6 +80,19 @@ class PictureSignatureLocator(BaseModel):
     # The boxed grid manifests as a run of single-glyph cells; `min_cells` is how many adjacent
     # cells constitute the grid signature (design spec §6 Stage 2 calibration; see ocr.py note).
     min_cells: int = Field(default=4, ge=1)
+    # The converter does not always fragment the grid into single-glyph cells (it can merge
+    # boxes into one garbled element, leaving no signature to detect). Fixed layout makes a
+    # pinned crop honest calibration DATA: when the signature does not fire anywhere in
+    # `page_range`, the region falls back to this bbox (loc-grid units, top-down — the same
+    # space the locator sees) on `fallback_page`. Both-or-neither.
+    fallback_page: int | None = Field(default=None, ge=1)
+    fallback_bbox: tuple[float, float, float, float] | None = None
+
+    @model_validator(mode="after")
+    def _fallback_both_or_neither(self) -> PictureSignatureLocator:
+        if (self.fallback_page is None) != (self.fallback_bbox is None):
+            raise ValueError("fallback_page and fallback_bbox must be set together")
+        return self
 
 
 class HeadingSpanLocator(BaseModel):
@@ -104,6 +117,34 @@ Locator = Annotated[
 ]
 
 
+class ReaskConfig(BaseModel):
+    """Strict-format reject-and-re-ask for one identifier-shaped field (the proven pattern).
+
+    After extraction, ``field`` (a leaf path into the extraction JSON) is normalized to
+    uppercase A–Z0–9 and full-matched against ``format``. On mismatch the region is re-asked
+    ONCE; the reply is normalized the same way and adopted only if it full-matches ``format``.
+    Bounded: one re-ask pass per field per run; a still-failing value stays as extracted —
+    an honest miss, never masked.
+
+    Two re-ask shapes (calibrated live 2026-07-11):
+
+    - whole-row (``boxes`` unset): the region crop is re-asked with ``prompt``. The VLM can
+      collapse REPEATED characters in a dense row at pinned decoding (698875 -> 68875).
+    - per-box (``boxes: N``): the locator's pinned ``fallback_bbox`` (required — it is exact
+      by construction, unlike a detected-signature bbox) is segmented into N equal-pitch
+      cells and each cell is asked for its single character. One bounded pass = N small
+      calls; immune to both bbox drift and repeated-character collapse.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    field: str
+    format: str
+    prompt: str
+    max_tokens: int = Field(default=64, gt=0)
+    boxes: int | None = Field(default=None, ge=2)
+
+
 class VlmConfig(BaseModel):
     """The per-region VLM re-read prompt (design spec §4.1).
 
@@ -116,6 +157,7 @@ class VlmConfig(BaseModel):
 
     prompt: str
     max_tokens: int = Field(gt=0)
+    reask: ReaskConfig | None = None
 
 
 SpliceMode = Literal["replace_placeholder", "insert_after_anchor"]

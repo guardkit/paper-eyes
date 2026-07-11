@@ -44,6 +44,14 @@ regions:
       min_height: 3
       max_width: 400
       page_range: [1, 2]
+      # The converter sometimes MERGES the boxes into one garbled element instead of
+      # fragmenting them (gate evidence 2026-07-11: personas 02/05 had no signature to
+      # detect). The grid's position is fixed by the form layout, so a pinned crop is
+      # honest calibration data: loc-grid units (0-500, top-down), derived exactly from
+      # the synth renderer's own layout constants and verified against a live page crop
+      # (reads the full NINO the merged OCR text garbled).
+      fallback_page: 1
+      fallback_bbox: [183.7, 115.8, 366.3, 131.6]
     vlm:
       # Calibrated live against the pinned region VLM on the tight crop (2026-07-11): a direct
       # boxed-row instruction transcribes the grid correctly; the earlier 'Field name: value'
@@ -53,6 +61,23 @@ regions:
         Transcribe the characters from left to right as a single line with
         no spaces. Output only that line, no commentary.
       max_tokens: 64
+      # Strict-format reject-and-re-ask (the proven pattern): a NINO that fails its format
+      # after extraction gets ONE bounded re-ask pass; the result is adopted only if it
+      # passes the same format. Gate evidence 2026-07-11: the plain transcription dropped/
+      # merged characters on 3 of 6 goldens (e.g. CZ698875C -> CZ69875C). Whole-row re-asks
+      # still collapsed REPEATED digits at pinned decoding (698875 -> 68875), so this region
+      # re-asks per box: the pinned fallback_bbox is segmented into 9 equal-pitch cells and
+      # each cell is read as one character — verified correct on all three failing goldens.
+      reask:
+        field: claimant.nino
+        format: "[A-Z]{2}[0-9]{6}[A-Z]"
+        max_tokens: 32
+        boxes: 9
+        prompt: |
+          This image is one row of exactly 9 boxes from a form, each box holding one
+          printed character: a UK National Insurance number — 2 letters, then 6 digits,
+          then 1 letter. Read the boxes one at a time, left to right. Reply with EXACTLY
+          the 9 characters in order — no spaces, no punctuation, nothing else.
     splice: replace_placeholder
 
   - id: child-details

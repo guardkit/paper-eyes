@@ -33,7 +33,8 @@ from papereyes.config.models import Formpack, PictureSignatureLocator, Pipeline
 from papereyes.errors import PaperEyesError
 from papereyes.pipeline.client import ModelClient, resolve_base_url
 from papereyes.pipeline.extract import extract_fields
-from papereyes.pipeline.locate import crop_region, locate_regions
+from papereyes.pipeline.flatten import resolve_path
+from papereyes.pipeline.locate import crop_region, fallback_match, locate_regions
 from papereyes.pipeline.ocr import Page, page_size, parse_doctags, rasterize_pdf_pages
 from papereyes.pipeline.report import render_report
 from papereyes.pipeline.splice import (
@@ -168,6 +169,7 @@ def run_pipeline(
     vlm_timings: dict[str, float] = {}
     crops_saved: list[Path] = []
     regions_triggered: list[str] = []
+    region_pngs: dict[str, bytes] = {}
     # Splice picture regions at their placeholder slot, span regions after their anchor.
     for match in matches:
         region = _region_by_id(formpack, match.region_id)
@@ -176,10 +178,11 @@ def run_pipeline(
         crop_path = crops_dir / f"{match.region_id}-p{match.page_no}.png"
         crop.image.save(crop_path)
         crops_saved.append(crop_path)
+        region_pngs[match.region_id] = _png_bytes(crop.image)
 
         t0 = time.perf_counter()
         reread = client.read_region(
-            region.vlm.prompt, _png_bytes(crop.image), max_tokens=region.vlm.max_tokens
+            region.vlm.prompt, region_pngs[match.region_id], max_tokens=region.vlm.max_tokens
         )
         vlm_timings[match.region_id] = round(time.perf_counter() - t0, 3)
         model_calls.append(
@@ -213,6 +216,82 @@ def run_pipeline(
         {"kind": "extract", "model": extract_result.model,
          "latency_s": round(extract_result.latency_s, 3)}
     )
+
+    # ── strict-format reject-and-re-ask (one bounded re-ask per declared field) ───────
+    # The proven pattern for identifier-shaped fields: a value that fails its declared
+    # format triggers ONE character-precise re-ask of the region crop; the reply is adopted
+    # only if it passes the same format. A region whose signature never fired uses its
+    # pinned fallback bbox to produce the crop (and the saved receipt) first.
+    reasks: list[dict[str, Any]] = []
+    for region in formpack.regions:
+        rk = region.vlm.reask
+        if rk is None:
+            continue
+        fmt_re = re.compile(rk.format)
+        current = resolve_path(extraction, rk.field)
+        norm = _normalize_id_value(current)
+        if current is not None and fmt_re.fullmatch(norm):
+            if norm != current:
+                _set_path(extraction, rk.field, norm)
+                reasks.append({"region": region.id, "field": rk.field,
+                               "outcome": "normalized", "was": current})
+            continue
+        t0 = time.perf_counter()
+        pinned = fallback_match(region, pages)
+        candidate = ""
+        raw_reply = ""
+        if rk.boxes is not None and pinned is not None:
+            # Per-box: segment the PINNED bbox (exact by construction — a detected-signature
+            # bbox drifts) into equal-pitch cells; one single-character ask per cell. Immune
+            # to the whole-row repeated-character collapse seen at pinned decoding.
+            page = pages[pinned.page_index]
+            row = crop_region(page, pinned)
+            row_path = crops_dir / f"{region.id}-p{pinned.page_no}-reask-row.png"
+            row.image.save(row_path)
+            crops_saved.append(row_path)
+            if region.id not in region_pngs:
+                regions_triggered.append(f"{region.id} (fallback bbox)")
+            chars: list[str] = []
+            for cell_png in _grid_cells(page, pinned.bbox_loc, rk.boxes):
+                rr = client.read_region(_CELL_PROMPT, cell_png, max_tokens=8)
+                model_calls.append(
+                    {"kind": "reask_cell", "region": region.id, "field": rk.field,
+                     "model": rr.model, "latency_s": round(rr.latency_s, 3)}
+                )
+                chars.append(_normalize_id_value(clean_region_text(rr.text))[:1])
+            candidate = "".join(chars)
+            raw_reply = candidate
+        else:
+            png = region_pngs.get(region.id)
+            if png is None:
+                if pinned is None:
+                    reasks.append({"region": region.id, "field": rk.field,
+                                   "outcome": "no_crop", "was": current})
+                    continue
+                page = pages[pinned.page_index]
+                crop = crop_region(page, pinned)
+                crop_path = crops_dir / f"{region.id}-p{pinned.page_no}-fallback.png"
+                crop.image.save(crop_path)
+                crops_saved.append(crop_path)
+                regions_triggered.append(f"{region.id} (fallback bbox)")
+                png = _png_bytes(crop.image)
+                region_pngs[region.id] = png
+            rr = client.read_region(rk.prompt, png, max_tokens=rk.max_tokens)
+            model_calls.append(
+                {"kind": "reask", "region": region.id, "field": rk.field, "model": rr.model,
+                 "latency_s": round(rr.latency_s, 3)}
+            )
+            candidate = _normalize_id_value(clean_region_text(rr.text))
+            raw_reply = rr.text[:80]
+        if candidate and fmt_re.fullmatch(candidate):
+            _set_path(extraction, rk.field, candidate)
+            reasks.append({"region": region.id, "field": rk.field,
+                           "outcome": "repaired", "was": current})
+        else:
+            reasks.append({"region": region.id, "field": rk.field, "outcome": "unrepaired",
+                           "was": current, "reask_raw": raw_reply})
+        timings.setdefault("reask", {})[region.id] = round(time.perf_counter() - t0, 3)
+
     timings["total"] = round(time.perf_counter() - total_t0, 3)
 
     # ── report + provenance ───────────────────────────────────────────────────────────
@@ -246,6 +325,7 @@ def run_pipeline(
         timings=timings,
         crops=crops_saved,
         model_calls=model_calls,
+        reasks=reasks,
     )
 
     report_name = f"{scan.stem}--{scan_sha[:8]}--fp{formpack.version}"
@@ -274,6 +354,69 @@ def _looks_field_like(text: str) -> bool:
     return bool(text) and (":" in text or any(c.isalpha() for c in text)) and len(text) < 2000
 
 
+_CELL_PROMPT = (
+    "This is one box from a form containing one printed character. "
+    "Reply with ONLY that single character."
+)
+
+
+def _normalize_id_value(value: Any) -> str:
+    """Normalize an identifier-shaped value for format matching: uppercase A-Z0-9 only."""
+    if value is None:
+        return ""
+    return re.sub(r"[^A-Z0-9]", "", str(value).upper())
+
+
+def _grid_cells(
+    page: Page, bbox_loc: tuple[float, float, float, float], n: int, *, upscale: int = 4
+) -> list[bytes]:
+    """Segment a pinned grid bbox into ``n`` equal-pitch cell crops (upscaled PNGs)."""
+    from PIL import Image
+
+    x1, y1 = page.loc_to_px(bbox_loc[0], bbox_loc[1])
+    x2, y2 = page.loc_to_px(bbox_loc[2], bbox_loc[3])
+    cells: list[bytes] = []
+    with Image.open(page.image_path) as raw:
+        img = raw.convert("RGB")
+        _, h = img.size
+        my = round(0.005 * h)
+        pitch = (x2 - x1) / n
+        for i in range(n):
+            cell = img.crop(
+                (round(x1 + i * pitch), max(0, y1 - my),
+                 round(x1 + (i + 1) * pitch), min(h, y2 + my))
+            )
+            cell = cell.resize((cell.width * upscale, cell.height * upscale), Image.Resampling.LANCZOS)
+            cells.append(_png_bytes(cell))
+    return cells
+
+
+def _set_path(obj: Any, path: str, value: Any) -> None:
+    """Set a leaf path (``a.b[0].c`` — resolve_path's grammar) in-place; no-op if absent."""
+    tokens = [t for t in path.replace("]", "").replace("[", ".").split(".") if t != ""]
+    cur = obj
+    for token in tokens[:-1]:
+        if isinstance(cur, dict):
+            if token not in cur:
+                return
+            cur = cur[token]
+        elif isinstance(cur, list):
+            try:
+                cur = cur[int(token)]
+            except (ValueError, IndexError):
+                return
+        else:
+            return
+    last = tokens[-1]
+    if isinstance(cur, dict):
+        cur[last] = value
+    elif isinstance(cur, list):
+        try:
+            cur[int(last)] = value
+        except (ValueError, IndexError):
+            return
+
+
 def _png_bytes(img: Any) -> bytes:
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -293,6 +436,7 @@ def _build_provenance(
     timings: dict[str, Any],
     crops: list[Path],
     model_calls: list[dict[str, Any]],
+    reasks: list[dict[str, Any]],
 ) -> dict[str, Any]:
     dec = {
         "temperature": pipeline_cfg.decoding.temperature,
@@ -329,4 +473,5 @@ def _build_provenance(
         "timings_s": timings,
         "crops": [str(p.name) for p in crops],
         "model_calls": model_calls,
+        "reasks": reasks,
     }

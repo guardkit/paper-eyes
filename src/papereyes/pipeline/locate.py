@@ -37,7 +37,7 @@ class RegionMatch:
     region_id: str
     page_index: int  # 0-based index into the pages list
     page_no: int  # 1-based page number
-    bbox_loc: tuple[int, int, int, int]
+    bbox_loc: tuple[float, float, float, float]
     members: tuple[LocatedElement, ...]
     fallback_text: str
     splice: str
@@ -148,6 +148,34 @@ def locate_regions(regions: list[Region], pages: list[Page]) -> list[RegionMatch
         if m is not None:
             matches.append(m)
     return matches
+
+
+def fallback_match(region: Region, pages: list[Page]) -> RegionMatch | None:
+    """Synthesize a match from a picture-signature locator's pinned fallback bbox.
+
+    Fired only when the signature did not match anywhere in its page range (the converter
+    merged the grid cells instead of fragmenting them, so there is no run to detect). The
+    synthesized match has no members and no fallback text — it exists to produce the crop
+    (the filmable "what the VLM saw" receipt) for the strict-format re-ask; it never takes
+    part in placeholder splicing.
+    """
+    loc = region.locate
+    if not isinstance(loc, PictureSignatureLocator):
+        return None
+    if loc.fallback_bbox is None or loc.fallback_page is None:
+        return None
+    for idx, page in enumerate(pages):
+        if page.page_no == loc.fallback_page:
+            return RegionMatch(
+                region_id=region.id,
+                page_index=idx,
+                page_no=page.page_no,
+                bbox_loc=loc.fallback_bbox,
+                members=(),
+                fallback_text="",
+                splice=region.splice,
+            )
+    return None
 
 
 @dataclass
