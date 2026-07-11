@@ -12,9 +12,11 @@ Stage 0-1 surface (design spec §2 IN, §6):
 - ``papereyes fetch-forms FORMPACK [--url URL --dest DIR --no-licence-check]`` — fetch the blank
   public form by URL, verify its sha256 pin, and probe its licence. Optional (render mode needs
   no blank); the fetched blank is written to a gitignored build dir, never committed.
+- ``papereyes run SCAN [--formpack FP --workdir DIR --out DIR --region-model M]`` — run the
+  pipeline on one scan against the real served models: report + ``.extraction.json`` + provenance.
 
-The pipeline commands (``run``, ``gate``, ``watch``) land in later stages; they are not wired
-here so nothing advertises a capability that does not yet exist.
+``watch`` lands in Stage 4; it is not wired here so nothing advertises a capability that does
+not yet exist.
 """
 
 from __future__ import annotations
@@ -135,6 +137,58 @@ def _cmd_fetch_forms(
     return 0
 
 
+def _build_client(pipeline_path: str, region_model: str | None):  # type: ignore[no-untyped-def]
+    from papereyes.config.loader import load_pipeline
+    from papereyes.pipeline.client import HttpModelClient
+
+    pipeline_cfg = load_pipeline(pipeline_path)
+    client = HttpModelClient(
+        pipeline_cfg.endpoint.base_url,
+        pipeline_cfg.models,
+        pipeline_cfg.decoding,
+        region_model=region_model,
+    )
+    return pipeline_cfg, client
+
+
+def _cmd_run(
+    scan: str, target: str, *, workdir: str, out: str | None, region_model: str | None,
+    pipeline_path: str,
+) -> int:
+    import json
+
+    from papereyes.pipeline.run import run_pipeline
+
+    run_workdir = Path(workdir) / Path(scan).stem
+    try:
+        pipeline_cfg, client = _build_client(pipeline_path, region_model)
+        formpack_dir = _resolve_formpack_dir(target)
+        formpack = load_formpack(formpack_dir)
+        result = run_pipeline(
+            scan, formpack, formpack_dir, pipeline_cfg, client,
+            workdir=run_workdir, region_model=region_model,
+        )
+    except (PaperEyesError, OSError) as exc:
+        print(f"run FAILED: {exc}", file=sys.stderr)
+        return 1
+
+    out_dir = Path(out) if out else run_workdir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report_path = out_dir / f"{result.report_name}.txt"
+    extraction_path = out_dir / f"{result.report_name}.extraction.json"
+    report_path.write_text(result.report_text, encoding="utf-8")
+    extraction_path.write_text(
+        json.dumps(result.extraction, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(f"run {formpack.slug()}: {Path(scan).name}")
+    print(f"    report     -> {report_path}")
+    print(f"    extraction -> {extraction_path}")
+    print(f"    provenance -> {run_workdir / 'provenance.json'}")
+    print(f"    regions triggered: {', '.join(result.provenance['regions_triggered']) or 'none'}")
+    print(f"    total time: {result.provenance['timings_s'].get('total')}s")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="papereyes",
@@ -179,6 +233,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--no-licence-check", dest="check_licence", action="store_false", help="skip licence probe"
     )
 
+    run = sub.add_parser("run", help="run the pipeline on one scan (real served models)")
+    run.add_argument("scan", help="path to a scanned PDF")
+    run.add_argument("--formpack", default="uk-ch2", help="formpack dir or name (default: uk-ch2)")
+    run.add_argument("--workdir", default="work", help="pipeline workdir (default: work)")
+    run.add_argument("--out", default=None, help="where to write the report + extraction JSON")
+    run.add_argument(
+        "--region-model", default=None,
+        help="override the per-region VLM (e.g. when the pinned VLM is unavailable on the fleet)",
+    )
+    run.add_argument("--pipeline", default="pipeline.yaml", help="pipeline config path")
+
     args = parser.parse_args(argv)
     if args.command == "version":
         return _cmd_version()
@@ -197,6 +262,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "fetch-forms":
         return _cmd_fetch_forms(
             args.formpack, url=args.url, dest=args.dest, check_licence=args.check_licence
+        )
+    if args.command == "run":
+        return _cmd_run(
+            args.scan, args.formpack, workdir=args.workdir, out=args.out,
+            region_model=args.region_model, pipeline_path=args.pipeline,
         )
     parser.print_help()
     return 0

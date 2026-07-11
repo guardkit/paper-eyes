@@ -28,19 +28,31 @@ docling:
 regions:
   # The generalised per-region VLM re-reads. Decoding (t=0, seed) is pinned globally in
   # pipeline.yaml for ALL calls — not set per region.
+  #
+  # CALIBRATION (Stage 2, 2026-07-11 — pure data, derived fresh against the synthetic CH2
+  # corpus; see docs/uk-ch2-calibration-note.md for the measured receipts):
+  # locator geometry is expressed in the served Docling VLM's 0-500 normalised location grid
+  # (granite-docling emits <loc_x><loc_y> tags on that scale), NOT raster pixels. The boxed NINO
+  # grid is fragmented by the converter into single-glyph cells, so the primary signal is
+  # `min_cells` (run length); width/height are loose sanity bounds. Measured on persona-01:
+  # the 9-cell NINO run spans 166 loc wide and 6 loc tall (x 186-352, y 120-126).
   - id: claimant-nino-grid
     locate:
-      kind: picture_signature   # the boxed-capital NINO grid is routed to a picture by layout
-      min_width: 150
-      min_height: 40
-      max_width: 900
+      kind: picture_signature   # the boxed-capital NINO grid the converter fragments into cells
+      min_cells: 6              # a NINO is 9 chars; >=6 adjacent single glyphs = grid signature
+      min_width: 80
+      min_height: 3
+      max_width: 400
       page_range: [1, 2]
     vlm:
+      # Calibrated live against the pinned region VLM on the tight crop (2026-07-11): a direct
+      # boxed-row instruction transcribes the grid correctly; the earlier 'Field name: value'
+      # phrasing made the model emit one 'Field name: X' line per box and misread characters.
       prompt: |
-        Transcribe every field in this UK Child Benefit form region as one
-        'Field name: value' line per field. Copy the exact characters inside each box;
-        if a box is empty, omit the line. Output plain lines only, no commentary.
-      max_tokens: 1024
+        This image shows a row of boxes, one printed character per box.
+        Transcribe the characters from left to right as a single line with
+        no spaces. Output only that line, no commentary.
+      max_tokens: 64
     splice: replace_placeholder
 
   - id: child-details

@@ -10,7 +10,18 @@ endpoint:
   base_url: "${PAPEREYES_OPENAI_BASE_URL:-http://localhost:9000/v1}"
 
 models:
-  # Pins confirmed against the live served inventory (localhost:9000/v1/models, 2026-07-11).
+  # Pins confirmed live against the served inventory AND exercised with real calls
+  # (localhost:9000/v1, 2026-07-11). vlm = the per-region re-read model (spec pin);
+  # extract = the text->JSON extractor (spec pin).
+  #
+  # docling = the bulk document-conversion model. DEVIATION, recorded in every provenance
+  # sidecar: the design spec's bulk pass is the local Docling StandardPdfPipeline
+  # (Tesseract OCR + layout). On this build host there is no tesseract binary and no sudo
+  # to install one, and Docling's non-Tesseract local engines are multi-GB torch stacks
+  # with Hugging Face weight downloads outside the one pinned, recorded endpoint — so the
+  # bulk conversion is served by granite-docling (the Docling project's own conversion
+  # VLM) on the same endpoint as every other call.
+  docling: granite-docling
   vlm: granite-vision-4-1-4b
   extract: qwen36-workhorse
 
@@ -28,8 +39,9 @@ decoding:
 serving_note: "sequential single-slot requests assumed for determinism"
 
 identify:
-  # The cheap, formpack-independent routing pass: rasterise the first N pages at fixed
-  # defaults and run plain OCR (no Docling, no layout model) to match identify patterns.
+  # The cheap, formpack-independent routing pass: rasterise the first N pages at these fixed
+  # defaults and convert them (served Docling VLM — no local plain-OCR engine on this host)
+  # to match identify patterns. Timed separately in provenance so routing cost stays honest.
   pages: 2
   dpi: 150
 

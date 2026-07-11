@@ -77,6 +77,9 @@ class PictureSignatureLocator(BaseModel):
     max_width: float = Field(gt=0.0)
     max_height: float | None = Field(default=None, gt=0.0)
     page_range: tuple[int, int]
+    # The boxed grid manifests as a run of single-glyph cells; `min_cells` is how many adjacent
+    # cells constitute the grid signature (design spec §6 Stage 2 calibration; see ocr.py note).
+    min_cells: int = Field(default=4, ge=1)
 
 
 class HeadingSpanLocator(BaseModel):
@@ -247,12 +250,18 @@ class Endpoint(BaseModel):
 
 
 class PipelineModels(BaseModel):
-    """The two model ids; the model NAME routes on llama-swap (design spec §4.2)."""
+    """The served model ids; the model NAME routes on llama-swap (design spec §4.2).
+
+    ``docling`` is the bulk document-conversion model (the served Docling VLM that stands in for
+    the local ``StandardPdfPipeline`` — see ``pipeline/ocr.py``); ``vlm`` is the per-region
+    re-read model (spec pin); ``extract`` is the text->JSON extractor.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     vlm: str
     extract: str
+    docling: str = "granite-docling"
 
 
 class Decoding(BaseModel):
