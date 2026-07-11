@@ -1,0 +1,29 @@
+{
+  "children": [
+    {
+      "date_of_birth": "2011-03-13",
+      "first_names": "George",
+      "full_name": "George Taylor",
+      "last_name": "Taylor"
+    },
+    {
+      "date_of_birth": "2016-04-13",
+      "first_names": "Denis",
+      "full_name": "Denis Taylor",
+      "last_name": "Taylor"
+    }
+  ],
+  "claimant": {
+    "address_lines": [
+      "947 Stephen harbors",
+      "West Annettehaven"
+    ],
+    "date_of_birth": "1970-11-12",
+    "first_names": "Yvonne",
+    "full_name": "Yvonne Taylor",
+    "last_name": "Taylor",
+    "nino": "CZ698875C",
+    "postcode": "N6E 4RS",
+    "title": "Mr"
+  }
+}

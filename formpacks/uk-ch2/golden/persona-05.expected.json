@@ -1,0 +1,23 @@
+{
+  "children": [
+    {
+      "date_of_birth": "2011-12-31",
+      "first_names": "Jacqueline",
+      "full_name": "Jacqueline Anderson",
+      "last_name": "Anderson"
+    }
+  ],
+  "claimant": {
+    "address_lines": [
+      "5 Joyce hill",
+      "Lake Mollybury"
+    ],
+    "date_of_birth": "1978-01-18",
+    "first_names": "Kieran",
+    "full_name": "Kieran Anderson",
+    "last_name": "Anderson",
+    "nino": "EK857268B",
+    "postcode": "IM7A 1XP",
+    "title": "Mrs"
+  }
+}

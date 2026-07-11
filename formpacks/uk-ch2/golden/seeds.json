@@ -1,0 +1,50 @@
+{
+  "base_seed": 7,
+  "count": 6,
+  "docs": [
+    {
+      "expected": "golden/persona-01.expected.json",
+      "expected_sha256": "25394621f14e20d4807a38febc416ecadc5f2dede17c3cca459bb0ebabdd933d",
+      "id": "persona-01",
+      "scan": "golden/persona-01.pdf",
+      "seed": 7000
+    },
+    {
+      "expected": "golden/persona-02.expected.json",
+      "expected_sha256": "db39f81362e560c12e10a14b7e24d069879015e545c57f47e3cbc97c74eee2c2",
+      "id": "persona-02",
+      "scan": "golden/persona-02.pdf",
+      "seed": 7001
+    },
+    {
+      "expected": "golden/persona-03.expected.json",
+      "expected_sha256": "a116d3a9ae9c9feefbe8ac8c35ca92d3583b0b6de4062f9b90bbcd38e1ca1f13",
+      "id": "persona-03",
+      "scan": "golden/persona-03.pdf",
+      "seed": 7002
+    },
+    {
+      "expected": "golden/persona-04.expected.json",
+      "expected_sha256": "90da70d1bddc87bc4b6abbec823d33ca074d70ef591d71f471fb31eb73312504",
+      "id": "persona-04",
+      "scan": "golden/persona-04.pdf",
+      "seed": 7003
+    },
+    {
+      "expected": "golden/persona-05.expected.json",
+      "expected_sha256": "570892839ed8c8f126a65bec3e482911bd1a91bdd36b2066e79cb583d356215e",
+      "id": "persona-05",
+      "scan": "golden/persona-05.pdf",
+      "seed": 7004
+    },
+    {
+      "expected": "golden/persona-06.expected.json",
+      "expected_sha256": "b5dba3415d3afaa73ae57cf051bbe19efb593947338c3726befbc7686906ed98",
+      "id": "persona-06",
+      "scan": "golden/persona-06.pdf",
+      "seed": 7005
+    }
+  ],
+  "dpi": 200,
+  "note": "Scans regenerate from these seeds via `papereyes synth`; only expected JSONs + this manifest are committed (scan PDFs are gitignored, OGL crest exclusion)."
+}

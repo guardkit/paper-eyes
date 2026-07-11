@@ -1,0 +1,35 @@
+{
+  "children": [
+    {
+      "date_of_birth": "2018-09-16",
+      "first_names": "Dennis",
+      "full_name": "Dennis Campbell",
+      "last_name": "Campbell"
+    },
+    {
+      "date_of_birth": "2020-05-27",
+      "first_names": "Wayne",
+      "full_name": "Wayne Campbell",
+      "last_name": "Campbell"
+    },
+    {
+      "date_of_birth": "2010-04-06",
+      "first_names": "Abdul",
+      "full_name": "Abdul Campbell",
+      "last_name": "Campbell"
+    }
+  ],
+  "claimant": {
+    "address_lines": [
+      "Studio 25U, Susan field",
+      "Barnesberg"
+    ],
+    "date_of_birth": "2001-10-13",
+    "first_names": "Terence",
+    "full_name": "Terence Campbell",
+    "last_name": "Campbell",
+    "nino": "NP727337B",
+    "postcode": "WA3 5WA",
+    "title": "Mr"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "children": [
+    {
+      "date_of_birth": "2016-04-25",
+      "first_names": "Joe",
+      "full_name": "Joe Whittaker",
+      "last_name": "Whittaker"
+    }
+  ],
+  "claimant": {
+    "address_lines": [
+      "148 Phillips estate",
+      "East Sarah"
+    ],
+    "date_of_birth": "1987-08-28",
+    "first_names": "Jane",
+    "full_name": "Jane Whittaker",
+    "last_name": "Whittaker",
+    "nino": "XL544569A",
+    "postcode": "LL0H 5RF",
+    "title": "Miss"
+  }
+}

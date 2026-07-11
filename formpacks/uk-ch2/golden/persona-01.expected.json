@@ -1,0 +1,29 @@
+{
+  "children": [
+    {
+      "date_of_birth": "2019-12-26",
+      "first_names": "Joel",
+      "full_name": "Joel Thomas",
+      "last_name": "Thomas"
+    },
+    {
+      "date_of_birth": "2017-12-12",
+      "first_names": "Hayley",
+      "full_name": "Hayley Thomas",
+      "last_name": "Thomas"
+    }
+  ],
+  "claimant": {
+    "address_lines": [
+      "Studio 08, Beverley harbors",
+      "Hollandland"
+    ],
+    "date_of_birth": "1989-08-25",
+    "first_names": "Brandon",
+    "full_name": "Brandon Thomas",
+    "last_name": "Thomas",
+    "nino": "BN605990B",
+    "postcode": "S13 9ZD",
+    "title": "Ms"
+  }
+}

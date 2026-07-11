@@ -1,0 +1,35 @@
+{
+  "children": [
+    {
+      "date_of_birth": "2023-11-07",
+      "first_names": "Pamela",
+      "full_name": "Pamela Singh",
+      "last_name": "Singh"
+    },
+    {
+      "date_of_birth": "2018-10-31",
+      "first_names": "Victor",
+      "full_name": "Victor Singh",
+      "last_name": "Singh"
+    },
+    {
+      "date_of_birth": "2017-02-04",
+      "first_names": "Clive",
+      "full_name": "Clive Singh",
+      "last_name": "Singh"
+    }
+  ],
+  "claimant": {
+    "address_lines": [
+      "Flat 4, Harrison hill",
+      "Port Marie"
+    ],
+    "date_of_birth": "1993-07-23",
+    "first_names": "Katy",
+    "full_name": "Katy Singh",
+    "last_name": "Singh",
+    "nino": "WC293269D",
+    "postcode": "N14 8PF",
+    "title": "Mr"
+  }
+}
