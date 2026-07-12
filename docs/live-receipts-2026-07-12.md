@@ -102,3 +102,17 @@ defect fixed en route: the chain script never created its `work/` bind source, s
 made it root-owned — `Permission denied` inside the container.)
 
 **Both live receipts now PASS. The composed demo is real, cold, and filmable.**
+
+---
+
+## Receipt 3 — Track A1 (ecosystem build lane, run `wf_0f364e08-34a`): committed-state verified · fresh gate PASS · stub exit-0 · live re-air = named residue
+
+**2026-07-12 afternoon, Node A (`promaxgb10-41b1`), unattended coordinator session.**
+
+- **Committed state verified:** deckhand `342116f` clean/in-sync; the ratified seat split committed verbatim in both `examples/relay-demo/{doc-router,digest-clerk}/config.yaml` (`model_id: gemma4-26b` · `critic_model_id: qwen36-workhorse` · `max_response_tokens: 4096` · `disable_thinking: true` all seats · `endpoint: loopback`). Noted discrepancy, both defensible per the receipts: relay-demo pins `disable_thinking: true` (gemma4-26b hides thinking in `reasoning_content`), the paper-clerk live seed in `verify_e2e.sh` uses `critic_only` — two agents, two settings.
+- **Fresh live re-gate of doc-router: PASS** (09:36 BST, `baseline.json` frozen on disk, "resists this probe"). Morning Receipt 2's audit walk independently re-verified by the lane's coach: artifact `sha256 3046a82d3241ce1b5be3fd4ee7e27ed39e351e96f284557e6cd715335762f852` recomputed = relay-log `delivered` line exactly (`handoff_proposal_id prop-9eadc91c676339cf`, `producer_ledger_confirmed: true`); producer ledger events stamped `endpoint http://host.docker.internal:9000/v1` with frozen `baseline_hash sha256:ec240d00b…` = `baseline.json`'s `baseline_sha`; consumer proposed unbaselined at ask tier (composition granted no tier).
+- **`verify_chain.sh` (stub): exit 0** — the composed §2.1 trace green end-to-end from cold, hermetic, this session.
+- **`verify_chain.sh --live`: NOT re-aired — two attempts, two named findings, zero code changes:**
+  1. *Cold-rerun trap (script behavior, recorded not patched):* `run_live` re-seeds `agents/` but leaves `work/` — so `work/processed.jsonl` survives across runs and the byte-identical `--seed 7` scan is skipped as a duplicate (idempotency doing its job). The morning PASS was genuinely cold. A live re-run needs `work/` and `drop/` cleared first (morning residue preserved off to the side, untouched).
+  2. *Serving-stack failure (fleet-side, out of this lane):* with clean state, extraction ran to `identify/` then died — `granite-docling: HTTP 500 "upstream command exited prematurely"` ×5 from llama-swap; reproduced with a direct curl; scheduler co-locates docling with the resident set but its upstream crashes ~20s into startup. Deckhand-side chain legs are live-proven today regardless (Receipt 2 this morning + the M-1 proxy's cold compose run 10:52–10:53Z: three live gates PASS, two relay `delivered` lines, artifact `sha256 6761c36a…`).
+- **Named attended residue:** cold `verify_chain.sh --live` re-air on Node A once granite-docling serves again (minutes, filmable) — plus the docling upstream itself for the serving-stack owner.
