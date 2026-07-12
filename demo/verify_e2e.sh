@@ -125,8 +125,9 @@ run_live() {
   mkdir -p "$agents" "$drop" "$pe_work"
   rm -rf "$adir"; cp -r "$REPO_ROOT/examples/paper-clerk" "$adir"
   # The shipped example keeps the generic 'qwen3-8b — set to whatever your server serves' default;
-  # DEMO INSTANCES pin the served fleet alias (plan §5 decision Q2). Patch the runtime copy only.
-  sed -i "s/^  model_id: .*/  model_id: ${DEMO_MODEL:-qwen36-workhorse}/" "$adir/config.yaml"
+  # DEMO INSTANCES pin the served fleet alias (plan §5 decision Q2) plus the reasoning-model
+  # pins (deckhand 23cf62d: unbounded thinking at temp 0 stalls structured calls). Runtime copy only.
+  sed -i "s/^  model_id: .*/  model_id: ${DEMO_MODEL:-qwen36-workhorse}\n  max_response_tokens: 1024\n  disable_thinking: true/" "$adir/config.yaml"
   # `deckhand gate` scores the golden set with the real model, then freezes baseline.json into the
   # agent dir so a cold run records a NON-`unbaselined` baseline_hash. Run it in the deckhand repo;
   # deckhand has no global install — fall back to `uv run deckhand` (DECKHAND_CMD overrides).
