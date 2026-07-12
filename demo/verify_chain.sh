@@ -127,6 +127,7 @@ run_live() {
   [ -f "$agents/doc-router/baseline.json" ] || fail "doc-router gate did not freeze baseline.json"
 
   say "cold docker compose up (paper-eyes + the unmodified deckhand + the relay)"
+  docker compose -f "$compose" down --remove-orphans >/dev/null 2>&1 || true
   docker compose -f "$compose" up -d --build
 
   say "generate a synthetic CH2 scan + drop it"

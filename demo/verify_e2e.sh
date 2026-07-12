@@ -137,6 +137,8 @@ run_live() {
   [ -f "$adir/baseline.json" ] || fail "deckhand gate did not freeze baseline.json"
 
   say "cold docker compose up (paper-eyes + the unmodified deckhand)"
+  # COLD means cold: a stale container keeps a bind to the deleted inode of a reseeded agent dir.
+  docker compose -f "$HERE/docker-compose.yml" down --remove-orphans >/dev/null 2>&1 || true
   docker compose -f "$HERE/docker-compose.yml" up -d --build
 
   say "generate a synthetic CH2 scan + drop it"
