@@ -146,7 +146,7 @@ run_live() {
 
   say "wait for the report to land + the daemon to propose"
   local name="" key="" hash=""
-  for _ in $(seq 1 120); do
+  for _ in $(seq 1 300); do
     name="$(cd "$adir/inbox" 2>/dev/null && ls *.txt 2>/dev/null | head -1 || true)"
     key="$(cd "$adir/pending" 2>/dev/null && ls *.json 2>/dev/null | head -1 || true)"
     [ -n "$name" ] && [ -n "$key" ] && break

@@ -12,6 +12,7 @@
 #
 # The model is a URL. Point both services at your host's OpenAI-compatible server (llama-swap on
 # :9000 here) via OPENAI_BASE_URL / PAPEREYES_OPENAI_BASE_URL. No network calls except that endpoint,
+      PYTHONUNBUFFERED: "1"
 # which is recorded in every provenance sidecar.
 
 services:
@@ -29,6 +30,8 @@ services:
       # The model endpoint (a URL). host.docker.internal + the host-gateway alias reaches a server
       # bound on the host (Linux). Override to the demo stub for the offline path.
       PAPEREYES_OPENAI_BASE_URL: "${PAPEREYES_OPENAI_BASE_URL:-http://host.docker.internal:9000/v1}"
+      PYTHONUNBUFFERED: "1"
+      PYTHONUNBUFFERED: "1"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
