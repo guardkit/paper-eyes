@@ -48,6 +48,17 @@ seed_agents() {
   cp "$DECKHAND_REPO/examples/relay-demo/workflows.yaml" "$agents/workflows.yaml"
   rm -f "$agents/doc-router/inbox/"* 2>/dev/null || true
   mkdir -p "$agents/doc-router/inbox"
+  # Optional runtime seat split on the COPIES (same evidence as verify_e2e: thinking players
+  # spiral on long documents, no-think players fail judgment criteria, and the proven critic
+  # is a different served model). Shipped configs stay untouched; inert unless set.
+  if [ -n "${DEMO_MODEL:-}" ]; then
+    sed -i "s/^  model_id: .*/  model_id: ${DEMO_MODEL}/" \
+      "$agents/doc-router/config.yaml" "$agents/digest-clerk/config.yaml"
+  fi
+  if [ -n "${DEMO_CRITIC_MODEL:-}" ]; then
+    sed -i "/^  model_id: /a\\  critic_model_id: ${DEMO_CRITIC_MODEL}" \
+      "$agents/doc-router/config.yaml" "$agents/digest-clerk/config.yaml"
+  fi
 }
 
 # ---------------------------------------------------------------------------------------------------
