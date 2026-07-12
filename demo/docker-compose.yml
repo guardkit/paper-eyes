@@ -30,7 +30,6 @@ services:
       # bound on the host (Linux). Override to the demo stub for the offline path.
       PAPEREYES_OPENAI_BASE_URL: "${PAPEREYES_OPENAI_BASE_URL:-http://host.docker.internal:9000/v1}"
       PYTHONUNBUFFERED: "1"
-      PYTHONUNBUFFERED: "1"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
