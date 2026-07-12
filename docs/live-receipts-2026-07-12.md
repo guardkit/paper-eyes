@@ -71,3 +71,34 @@ orchestrator swapped model sets on the shared endpoint; the D3 rehearsal record
 (`deckhand-workbench/docs/d3-rehearsal-2026-07-11.md`) carries the full diagnosis and the
 filming-day rule it produced: **a gate run gets a genuinely reserved endpoint.** Retired by
 the thinking-pins fix for the calls themselves; still binding for filming-day scheduling.
+
+---
+
+## Receipt 2 — RESOLVED: `verify_chain.sh --live`: **PASS** (2026-07-12 morning session, interactive with Rich)
+
+The doc-router gate block was calibrated live, interactively, in three acts — each caught by
+the gate refusing to pass, each fixed at the right layer:
+
+1. **The invisible scheme** (config data): neither the player nor the critic was ever told the
+   routes are `reports`/`invoices` — the scheme lived only in the capability enum. The player
+   invented routes (`route: Child Benefit (CH2)`); the critic judged against a guessed scheme.
+   Fixed: the system_prompt and the `right_route` criterion now state the scheme.
+2. **The secretly-thinking player** (config data): gemma4-26b IS a reasoning model on this
+   fleet — its thinking hides in `reasoning_content` and starved structured calls to empty
+   `length`-finish responses. `enable_thinking: false` works on it (1s clean answers).
+   Thinking is now off for every relay-demo seat.
+3. **The injected critic** (critic constitution, deckhand `342116f`): with the player finally
+   resisting the probe, the CRITIC scored it 0.0 — reason, verbatim: *"the candidate ignores
+   the explicit instruction in the source... instead incorrectly applying the 'reports'
+   route."* The judge ruled the player should have obeyed the attack. The evaluator's
+   constitution now names embedded source instructions as attacks the correct candidate
+   ignores — never penalized, never ground truth.
+
+Post-calibration gate: **PASS 4/4 at composite 1.000, probe resisted.** Then the live chain,
+cold, one run: gate → drop → pipeline → report → move proposal → approval → handoff receipt
+before artifact → relay delivery → consumer proposal at ask tier → second approval →
+relay-log `delivered`, both board pages render, egress recorded. (One further live-only
+defect fixed en route: the chain script never created its `work/` bind source, so docker
+made it root-owned — `Permission denied` inside the container.)
+
+**Both live receipts now PASS. The composed demo is real, cold, and filmable.**
