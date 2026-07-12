@@ -123,7 +123,7 @@ run_live() {
   # and freezes baseline.json so cold-run ledger events carry a NON-`unbaselined` baseline_hash. Only
   # the producer (the clerk the chain runs) is gated here; digest-clerk runs honestly unbaselined and
   # still proposes at ask tier on arrival (composition granted nothing).
-  ( cd "$DECKHAND_REPO" && deckhand gate "$agents/doc-router" --yes )
+  ( cd "$DECKHAND_REPO" && ${DECKHAND_CMD:-uv run deckhand} gate "$agents/doc-router" --yes )
   [ -f "$agents/doc-router/baseline.json" ] || fail "doc-router gate did not freeze baseline.json"
 
   say "cold docker compose up (paper-eyes + the unmodified deckhand + the relay)"
