@@ -128,7 +128,7 @@ run_live() {
   # DEMO INSTANCES pin the served fleet alias (plan §5 decision Q2) plus the reasoning-model
   # pins (deckhand: unbounded critic thinking at temp 0 stalls structured calls, while a
   # NO-think player followed the injection probe — hence critic_only + a bounded player budget).
-  sed -i "s/^  model_id: .*/  model_id: ${DEMO_MODEL:-qwen36-workhorse}\n  max_response_tokens: 4096\n  disable_thinking: critic_only/" "$adir/config.yaml"
+  sed -i "s/^  model_id: .*/  model_id: ${DEMO_MODEL:-qwen36-workhorse}\n  critic_model_id: ${DEMO_CRITIC_MODEL:-qwen36-workhorse}\n  max_response_tokens: 4096\n  disable_thinking: critic_only/" "$adir/config.yaml"
   # `deckhand gate` scores the golden set with the real model, then freezes baseline.json into the
   # agent dir so a cold run records a NON-`unbaselined` baseline_hash. Run it in the deckhand repo;
   # deckhand has no global install — fall back to `uv run deckhand` (DECKHAND_CMD overrides).
