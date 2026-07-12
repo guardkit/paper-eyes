@@ -126,7 +126,7 @@ run_live() {
   export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
 
   say "seed the shared agents root + gate doc-router (freeze its baseline — the gate-to-exist scene)"
-  mkdir -p "$agents" "$drop"
+  mkdir -p "$agents" "$drop" "$HERE/work"   # work too — docker auto-creates missing bind sources as root
   rm -rf "$agents/doc-router" "$agents/digest-clerk" "$agents/workflows.yaml"
   seed_agents "$agents"
   # §2.1 step 0: doc-router is drafted from examples/filed-history-routes/ in the workbench, corrected,
