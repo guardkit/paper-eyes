@@ -26,7 +26,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/.." && pwd)"
-PAPEREYES="${PAPEREYES:-papereyes}"
+PAPEREYES="${PAPEREYES:-$REPO_ROOT/.venv/bin/papereyes}"
 PYTHON="${PYTHON:-python3}"
 STUB_PORT="${STUB_PORT:-9098}"
 DECKHAND_REPO="${DECKHAND_REPO:-$REPO_ROOT/../deckhand}"
