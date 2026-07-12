@@ -192,7 +192,9 @@ PY
   [ "$n1" = "$n2" ] || fail "re-drop produced a second report ($n1 -> $n2)"
 
   say "idempotency receipt (b): run --force re-emit -> daemon reports skipped_resolved"
-  ( cd "$REPO_ROOT" && "$PAPEREYES" run "$drop/persona-01.pdf" --force \
+  # The daemon relocates drop files to processed/ — use the golden PDF directly (same bytes,
+  # same doc_key/report name), exactly as stub mode does.
+  ( cd "$REPO_ROOT" && "$PAPEREYES" run "$REPO_ROOT/formpacks/uk-ch2/golden/persona-01.pdf" --force \
         --inbox "$adir/inbox" --workdir "$pe_work" --out "$pe_work/out" >/dev/null )
   # the daemon re-reads the byte-identical report; the doc_key is already resolved -> skipped_resolved
   docker compose -f "$HERE/docker-compose.yml" logs deckhand 2>&1 | grep -q "skipped" \
