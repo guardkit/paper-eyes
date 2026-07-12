@@ -12,7 +12,6 @@
 #
 # The model is a URL. Point both services at your host's OpenAI-compatible server (llama-swap on
 # :9000 here) via OPENAI_BASE_URL / PAPEREYES_OPENAI_BASE_URL. No network calls except that endpoint,
-      PYTHONUNBUFFERED: "1"
 # which is recorded in every provenance sidecar.
 
 services:
