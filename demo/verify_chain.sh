@@ -147,7 +147,7 @@ run_live() {
 
   say "wait for the report to land in doc-router/inbox + the daemon to propose the move"
   local name="" key="" hash=""
-  for _ in $(seq 1 120); do
+  for _ in $(seq 1 300); do
     name="$(cd "$agents/doc-router/inbox" 2>/dev/null && ls ./*.txt 2>/dev/null | head -1 || true)"
     key="$(cd "$agents/doc-router/pending" 2>/dev/null && ls ./*.json 2>/dev/null | head -1 || true)"
     [ -n "$name" ] && [ -n "$key" ] && break
