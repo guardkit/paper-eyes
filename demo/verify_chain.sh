@@ -128,6 +128,12 @@ run_live() {
   say "seed the shared agents root + gate doc-router (freeze its baseline — the gate-to-exist scene)"
   mkdir -p "$agents" "$drop" "$HERE/work"   # work too — docker auto-creates missing bind sources as root
   rm -rf "$agents/doc-router" "$agents/digest-clerk" "$agents/workflows.yaml"
+  # MA-32: a re-air must actually RE-SCAN. paper-eyes dedupes by doc via work/processed.jsonl, so a
+  # surviving entry (or a stale scan in drop/) makes a cold re-air silently skip the scan as a
+  # duplicate — a false-negative on the filmable re-air the day docling is fixed. Clear both here so
+  # the re-seed above is matched by a clean throughput surface. (run_stub uses a fresh mktemp workdir,
+  # so it never hits this trap; only the persistent-bind live path does.)
+  rm -rf "$HERE/work"/* "$HERE/work"/.[!.]* "$drop"/* "$drop"/.[!.]* 2>/dev/null || true
   seed_agents "$agents"
   # §2.1 step 0: doc-router is drafted from examples/filed-history-routes/ in the workbench, corrected,
   # mv'd to live names, then gated — this IS that gate. It scores the golden set with the REAL model
