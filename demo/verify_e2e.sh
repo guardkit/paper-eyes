@@ -121,7 +121,7 @@ run_live() {
   local agent="paper-clerk" adir="$agents/paper-clerk"
   export HOST_UID="$(id -u)" HOST_GID="$(id -g)"
 
-  say "seed the paper-clerk agent + gate it (freezes baseline.json — the gate-to-exist receipt)"
+  say "seed the paper-clerk agent + gate it --yes (freezes a SCRIPTED-review baseline.json)"
   mkdir -p "$agents" "$drop" "$pe_work"
   rm -rf "$adir"; cp -r "$REPO_ROOT/examples/paper-clerk" "$adir"
   # The shipped example keeps the generic 'qwen3-8b — set to whatever your server serves' default;
@@ -132,6 +132,10 @@ run_live() {
   # `deckhand gate` scores the golden set with the real model, then freezes baseline.json into the
   # agent dir so a cold run records a NON-`unbaselined` baseline_hash. Run it in the deckhand repo;
   # deckhand has no global install — fall back to `uv run deckhand` (DECKHAND_CMD overrides).
+  # HONESTY (MA-15): `--yes` performs NO human review — it stamps the §2.2 unlabeled review as
+  # scripted (the gate report prints `human unlabeled review: SCRIPTED (--yes — not a human
+  # review)`). This is a SCRIPTED-review baseline: the demo's plumbing receipt, NOT the filmable
+  # gate-to-exist ceremony (that is a real agent gated WITHOUT `--yes`).
   ( cd "${DECKHAND_REPO:-$REPO_ROOT/../deckhand}" \
     && ${DECKHAND_CMD:-$(command -v deckhand >/dev/null && echo deckhand || echo "uv run deckhand")} gate "$adir" --yes )
   [ -f "$adir/baseline.json" ] || fail "deckhand gate did not freeze baseline.json"

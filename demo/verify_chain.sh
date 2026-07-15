@@ -145,7 +145,10 @@ run_live() {
   if [ -f "$agents/doc-router/baseline.json" ]; then
     say "doc-router: using its committed fixture baseline (offline; not a live re-gate)"
   else
-    say "doc-router: no committed baseline in the checkout — live-gating to freeze one (fallback)"
+    say "doc-router: no committed baseline in the checkout — live-gating --yes to freeze a SCRIPTED-review baseline (fallback)"
+    # HONESTY (MA-15): `--yes` performs NO human review — it stamps the §2.2 unlabeled review as
+    # scripted (the gate report prints `human unlabeled review: SCRIPTED (--yes — not a human
+    # review)`). A scripted-review baseline is the self-heal fallback, never the filmable birth.
     ( cd "$DECKHAND_REPO" && ${DECKHAND_CMD:-uv run deckhand} gate "$agents/doc-router" --yes )
     [ -f "$agents/doc-router/baseline.json" ] || fail "doc-router gate did not freeze baseline.json"
   fi
