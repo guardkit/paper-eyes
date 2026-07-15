@@ -95,6 +95,14 @@ deny-list (`ci/leakage_denylist.txt`) fails the build on any engagement-derived 
 reference client pipeline appearing in `src/`, `formpacks/`, `docs/` or `tests/`. Run it
 directly with `uv run python -m papereyes.gates`.
 
+## Security
+
+Paper Eyes parses untrusted scanned PDFs with poppler and treats served-model output as untrusted
+bytes. Its posture in plain language, and how to report a vulnerability, is in
+[SECURITY.md](SECURITY.md); the assets, trust boundaries, and the limits it deliberately does not
+defend (an unsandboxed poppler beyond process/user/mount isolation; a compromised endpoint) are in
+[THREAT-MODEL.md](THREAT-MODEL.md).
+
 ## Licence
 
 MIT (this code) — see [LICENSE](LICENSE). Modelled public forms carry their own Crown-copyright

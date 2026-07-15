@@ -11,9 +11,12 @@
 # every provenance sidecar). Build context is the repo root (see demo/docker-compose.yml).
 
 # --- build stage: resolve + install the locked deps and the project into a venv ---------------
-FROM python:3.11-slim-bookworm AS build
+# Base + tool images are pinned by digest, not by a floating tag, so a supply-chain swap upstream
+# cannot land silently: the tag stays human-readable, the @sha256 is what actually resolves. Bump
+# both deliberately (re-inspect the tag's digest) — never let them drift. (SECURITY.md / MA-37.)
+FROM python:3.11-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba AS build
 
-COPY --from=ghcr.io/astral-sh/uv:0.11 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11@sha256:0f36cb9361a3346885ca3677e3767016687b5a170c1a6b88465ec14aefec90aa /uv /usr/local/bin/uv
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -32,11 +35,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # --- runtime stage: slim image, poppler installed, the venv + source + formpacks copied in -----
-FROM python:3.11-slim-bookworm AS runtime
+FROM python:3.11-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba AS runtime
 
 # poppler-utils = pdftoppm (the raster step) + pdftotext. The ONLY system package the runtime needs.
+# Pinned to an exact bookworm version so the parser toolchain cannot be swapped underneath the build
+# without a visible diff. This version is the candidate in the pinned base above; when Debian ships a
+# new deb12uN security update, bump it deliberately (never float to whatever the mirror serves).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends poppler-utils \
+    && apt-get install -y --no-install-recommends poppler-utils=22.12.0-2+deb12u2 \
     && rm -rf /var/lib/apt/lists/*
 
 # A non-root default user. Compose overrides `user:` to the host uid so bind-mounted drop/ / work/ /
