@@ -48,8 +48,10 @@ services:
 
   deckhand:
     build:
-      # Built from source so `docker compose up --build` is self-contained; pin main.
-      context: "https://github.com/guardkit/deckhand.git#main"
+      # Built from source so `docker compose up --build` is self-contained. Pinned to a sha (matches
+      # the flagship demo/docker-compose.yml) — never `#main`, so a deckhand push can't silently swap
+      # what this composed demo builds (MA-31/MA-37).
+      context: "https://github.com/guardkit/deckhand.git#09b265bc070d650d11e87ac1459e3011c38cbf68"
     image: deckhand:paper-eyes-demo
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     ports:
