@@ -19,15 +19,21 @@ data. There is no `eval`, no `exec`, no `pickle`, and no `marshal` anywhere in t
 **The document parser runs untrusted PDFs at arm's length — and is honest about how far that goes.**
 The bytes Paper Eyes parses that it did not author are scanned PDFs. They are rendered to page images
 by poppler (`pdftoppm`; the optional fetch path also probes a blank with `pdftotext`). Every poppler
-call goes through `subprocess.run` with a **fixed argument list** — there is no `shell=True`, no
-`os.system`, and no string interpolation anywhere in the tree; the scan path is passed as an argv
-element, not spliced into a shell line. The tool runs on bytes already written to disk, as a
+call goes through one **bounded-resource wrapper** (`papereyes.sandbox`, `subprocess.run` under the
+hood) with a **fixed argument list** — there is no `shell=True`, no `os.system`, and no string
+interpolation anywhere in the tree; the scan path is passed as an argv element, not spliced into a
+shell line. On top of the fixed argv the wrapper applies a **wall-clock timeout** on the parent
+process and, in the child before `exec` on POSIX, **CPU-time, address-space, and file-size rlimits**
+(`RLIMIT_CPU` / `RLIMIT_AS` / `RLIMIT_FSIZE`), so a crafted PDF that trips a poppler bug cannot hang
+the parse indefinitely or exhaust memory / CPU / disk beyond those caps; a cap breach or a timeout
+raises a typed error and is never swallowed (the `pdftotext` stdout pipe, which `RLIMIT_FSIZE` cannot
+bound, is truncated to a byte cap after read). The tool runs on bytes already written to disk, as a
 **non-root user** (the image builds a uid-10001 `papereyes` user, and compose runs the process as the
-host uid), inside a container, with its output confined to a **per-scan workdir**. That process /
-user / mount isolation is the blast-radius bound — and it is the *whole* of it. Paper Eyes does **not**
-wrap poppler in a wall-clock timeout, resource limits (memory / CPU / file-size), a seccomp profile,
-or a network-isolated namespace. That is an accepted v0 limit, named as such in
-[THREAT-MODEL.md](THREAT-MODEL.md) — not a sandbox this document will claim it has.
+host uid), inside a container, with its output confined to a **per-scan workdir**. This is **software
+mitigation, not an OS sandbox**: it does **not** add a seccomp profile restricting poppler's syscalls
+or a network-isolated namespace — those remain absent, named as such in
+[THREAT-MODEL.md](THREAT-MODEL.md) and listed under planned hardening below, not a kernel-level
+confinement this document will claim it has.
 
 **Model output is treated as untrusted bytes.** The served-model responses are validated by
 construction: the structured-extraction call sends `response_format: json_schema` with `strict: true`,
@@ -94,10 +100,13 @@ tracker until a fix is available.
 These are named follow-ons, not current properties. Each needs infrastructure or keys Paper Eyes does
 not carry today, so it is listed here honestly rather than implied above:
 
-- **A bounded-resource parser wrapper.** Wrap the poppler calls in a wall-clock timeout plus memory /
-  CPU / output-size resource limits (and, where the platform allows, a seccomp profile or a
-  network-isolated namespace), so a malicious PDF that trips a poppler bug cannot hang or exhaust the
-  container's ambient resources. This closes the accepted v0 limit named in the threat model.
+- **A kernel-level parser sandbox (seccomp / network namespace).** The bounded-resource wrapper —
+  a wall-clock timeout plus CPU / address-space / file-size rlimits around every poppler call — is
+  now **implemented** (`papereyes.sandbox`; see the posture above and the threat model), closing the
+  resource-exhaustion half of the accepted v0 limit. What remains planned is confinement *below* that:
+  a seccomp profile restricting the syscalls poppler may make and, where the platform allows, a
+  network-isolated namespace, so a poppler bug cannot reach the syscall or network surface at all.
+  Needs the platform's seccomp / namespace support in the deployment.
 - **CI build-provenance attestation + SBOM.** Emit a signed build-provenance attestation and a
   software bill of materials per image on release, so the published artefact's supply chain can be
   verified independently. Needs CI signing identity.

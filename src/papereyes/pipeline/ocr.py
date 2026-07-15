@@ -21,13 +21,19 @@ from __future__ import annotations
 
 import re
 import shutil
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from PIL import Image
 
 from papereyes.errors import PaperEyesError
+from papereyes.sandbox import (
+    PDFTOPPM_ADDRESS_SPACE_BYTES,
+    PDFTOPPM_CPU_SECONDS,
+    PDFTOPPM_FSIZE_BYTES,
+    PDFTOPPM_TIMEOUT_S,
+    run_bounded,
+)
 
 # granite-docling emits locations on a 0-500 normalised grid.
 LOC_SCALE = 500
@@ -152,7 +158,18 @@ def rasterize_pdf_pages(
     if last_page is not None:
         cmd += ["-l", str(last_page)]
     cmd += [str(pdf_path), str(prefix)]
-    subprocess.run(cmd, check=True, capture_output=True)
+    # poppler runs at arm's length through the bounded-resource wrapper (rlimits + wall-clock
+    # timeout, fixed argv, never a shell) — see papereyes.sandbox / THREAT-MODEL.md "crafted PDF".
+    run_bounded(
+        cmd,
+        error_cls=OcrError,
+        what="pdftoppm",
+        timeout_s=PDFTOPPM_TIMEOUT_S,
+        cpu_seconds=PDFTOPPM_CPU_SECONDS,
+        address_space_bytes=PDFTOPPM_ADDRESS_SPACE_BYTES,
+        fsize_bytes=PDFTOPPM_FSIZE_BYTES,
+        check=True,
+    )
 
     def page_no(p: Path) -> int:
         stem = p.stem.rsplit("-", 1)[-1]

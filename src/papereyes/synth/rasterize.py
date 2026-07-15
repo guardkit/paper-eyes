@@ -14,7 +14,6 @@ the scan bytes identical run to run for a given persona.
 from __future__ import annotations
 
 import shutil
-import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -22,6 +21,13 @@ import img2pdf
 from PIL import Image
 
 from papereyes.errors import SynthError
+from papereyes.sandbox import (
+    PDFTOPPM_ADDRESS_SPACE_BYTES,
+    PDFTOPPM_CPU_SECONDS,
+    PDFTOPPM_FSIZE_BYTES,
+    PDFTOPPM_TIMEOUT_S,
+    run_bounded,
+)
 
 # A fixed instant so img2pdf embeds a stable creation/mod date AND a stable document /ID
 # (its /ID is an md5 derived from the date + producer). This is what makes the rendered
@@ -61,10 +67,17 @@ def rasterize_to_image_pdf(
     work.mkdir(parents=True, exist_ok=True)
     prefix = work / "page"
 
-    subprocess.run(
+    # poppler runs at arm's length through the bounded-resource wrapper (rlimits + wall-clock
+    # timeout, fixed argv, never a shell) — see papereyes.sandbox / THREAT-MODEL.md "crafted PDF".
+    run_bounded(
         [exe, "-r", str(dpi), "-png", str(vector_pdf), str(prefix)],
+        error_cls=SynthError,
+        what="pdftoppm",
+        timeout_s=PDFTOPPM_TIMEOUT_S,
+        cpu_seconds=PDFTOPPM_CPU_SECONDS,
+        address_space_bytes=PDFTOPPM_ADDRESS_SPACE_BYTES,
+        fsize_bytes=PDFTOPPM_FSIZE_BYTES,
         check=True,
-        capture_output=True,
     )
     raw_pages = _page_pngs(prefix)
     if not raw_pages:

@@ -52,10 +52,14 @@ These are the places where Paper Eyes parses input it did not author, and treats
 
 - **The dropped scan PDF** — the primary untrusted input. Rendered by poppler `pdftoppm` to page PNGs,
   which are then decoded and normalised through a version-pinned Pillow; the optional fetch path
-  probes a downloaded blank with `pdftotext`. poppler is invoked with a **fixed argv list** (no
-  shell), as a **non-root user**, with output confined to a **per-scan workdir**. Its blast-radius
-  bound is that process / user / mount isolation — it is **not** an in-process sandbox (there is no
-  timeout, no rlimit, no seccomp; see "what Paper Eyes does not defend against").
+  probes a downloaded blank with `pdftotext`. Every poppler call goes through a **bounded-resource
+  wrapper** (`papereyes.sandbox`): a **fixed argv list** (no shell), a **wall-clock timeout** on the
+  parent, and — applied in the child before `exec` on POSIX — CPU-time, address-space, and file-size
+  **rlimits** (`RLIMIT_CPU` / `RLIMIT_AS` / `RLIMIT_FSIZE`; the `pdftotext` stdout pipe, which
+  `RLIMIT_FSIZE` cannot bound, is additionally truncated after read). It runs as a **non-root user**
+  with output confined to a **per-scan workdir**. This is **software mitigation, not an OS sandbox**:
+  a seccomp profile and a network-isolated namespace are still absent (see "what Paper Eyes does not
+  defend against").
 - **Model responses** — the structured-extraction call constrains the server with a strict
   `json_schema`, and the result is re-checked client-side: a bounded salvage re-parse and an
   object-type check turn a malformed completion into a typed error rather than a crash. The
@@ -73,13 +77,16 @@ Being explicit about the edges of the model is part of the model:
   workdir, the emitted reports, the config, or the formpacks. `processed.jsonl` is a plain append-only
   log with **no** anti-tampering property — that is a deliberate design choice, and it is never
   described otherwise.
-- **The poppler parser beyond process / user / mount isolation.** poppler (`pdftoppm` / `pdftotext`)
-  is a C toolchain with a real history of parser bugs. Paper Eyes runs it as a non-root user in a
-  container, from a fixed argv, on bytes already in hand, with output confined to a workdir — but it
-  does **not** wrap poppler in a wall-clock timeout, resource limits (memory / CPU / output-size), a
-  seccomp profile, or a network-isolated namespace. A malicious PDF that triggers a poppler bug could
-  hang the parse or consume resources within the container's ambient limits. This is an accepted v0
-  limit; a bounded-resource parser wrapper is named as planned hardening in [SECURITY.md](SECURITY.md).
+- **The poppler parser beyond its resource caps, and below the syscall / network layer.** poppler
+  (`pdftoppm` / `pdftotext`) is a C toolchain with a real history of parser bugs. Paper Eyes runs it
+  as a non-root user in a container, from a fixed argv, on bytes already in hand, with output confined
+  to a workdir, **and** through the bounded-resource wrapper above — a wall-clock timeout plus CPU /
+  address-space / file-size rlimits, so a malicious PDF that trips a poppler bug can no longer hang
+  the parse indefinitely or exhaust memory / CPU / disk beyond those caps. What it does **not** add is
+  an OS sandbox *below* that: there is no seccomp profile restricting the syscalls poppler may make
+  and no network-isolated namespace, so poppler still runs with the container's ambient syscall
+  surface and network access. This is software mitigation, not kernel-level confinement; the
+  seccomp / namespace leg is named as planned hardening in [SECURITY.md](SECURITY.md).
 - **A compromised model endpoint.** Paper Eyes validates the *shape*, *schema*, and *structure* of
   model output, but a malicious endpoint could return well-formed, wrong extractions. The extraction
   is advisory and deckhand's human review is load-bearing precisely because the model is never fully

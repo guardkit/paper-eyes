@@ -15,13 +15,20 @@ from __future__ import annotations
 
 import hashlib
 import shutil
-import subprocess
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
 from papereyes.config.models import Formpack
 from papereyes.errors import FetchError
+from papereyes.sandbox import (
+    PDFTOTEXT_ADDRESS_SPACE_BYTES,
+    PDFTOTEXT_CPU_SECONDS,
+    PDFTOTEXT_MAX_OUTPUT_BYTES,
+    PDFTOTEXT_TIMEOUT_S,
+    decode_capped,
+    run_bounded,
+)
 
 
 def sha256_hex(data: bytes) -> str:
@@ -46,14 +53,27 @@ def verify_sha(data: bytes, pinned: str | None) -> tuple[str, bool]:
 
 
 def extract_text(pdf_path: str | Path) -> str:
-    """Extract text from a PDF via poppler ``pdftotext``; '' if the tool is absent."""
+    """Extract text from a PDF via poppler ``pdftotext``; '' if the tool is absent.
+
+    poppler runs at arm's length through the bounded-resource wrapper (rlimits + wall-clock
+    timeout, fixed argv, never a shell — see :mod:`papereyes.sandbox`). The probe is tolerant of
+    a non-zero exit (``check=False`` — a licence probe on a partial read is fine), but a
+    wall-clock timeout on a hung parser is still loud; the stdout pipe is capped after read.
+    """
     exe = shutil.which("pdftotext")
     if exe is None:
         return ""
-    result = subprocess.run(
-        [exe, str(pdf_path), "-"], check=False, capture_output=True, text=True
+    proc = run_bounded(
+        [exe, str(pdf_path), "-"],
+        error_cls=FetchError,
+        what="pdftotext",
+        timeout_s=PDFTOTEXT_TIMEOUT_S,
+        cpu_seconds=PDFTOTEXT_CPU_SECONDS,
+        address_space_bytes=PDFTOTEXT_ADDRESS_SPACE_BYTES,
+        fsize_bytes=PDFTOTEXT_MAX_OUTPUT_BYTES,
+        check=False,
     )
-    return result.stdout
+    return decode_capped(proc.stdout, PDFTOTEXT_MAX_OUTPUT_BYTES)
 
 
 def licence_probe_from(licence: str) -> str:
