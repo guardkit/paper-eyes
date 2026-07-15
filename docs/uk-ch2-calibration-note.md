@@ -75,6 +75,6 @@ re-read is a misread and the bulk value stands.
 
 ## Gate + determinism receipts
 
-Recorded in [stage3-gate-receipts.md](stage3-gate-receipts.md) (verbatim gate output table,
+Recorded in [session-b-receipts.md](session-b-receipts.md) §§4-5 (verbatim gate output table,
 frozen `formpack.baseline.json`, and the two-run byte-compare determinism receipt with its
 serving conditions).

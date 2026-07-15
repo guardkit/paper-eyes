@@ -80,7 +80,9 @@ inbox — where digest-clerk proposes at its own `ask` tier (composition granted
   and that both board pages render.
 
 The composed demo **reuses deckhand's `examples/relay-demo` agents verbatim** (copied at build, never
-forked) and pins the demo agents to `qwen36-workhorse`; `DECKHAND_OPERATOR=owner@localhost` everywhere.
+forked); those agents ship the ratified seat split — player `gemma4-26b`, critic `qwen36-workhorse`,
+thinking off (`DEMO_MODEL` / `DEMO_CRITIC_MODEL` override the copies if set);
+`DECKHAND_OPERATOR=owner@localhost` everywhere.
 
 ## What is data here
 

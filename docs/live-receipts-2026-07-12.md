@@ -64,6 +64,13 @@ the gate doing its job, three different ways in one night.
 `DEMO_CRITIC_MODEL=qwen36-workhorse`) — env-gated, committed defaults still the
 qwen36-workhorse pin per the plan §5 decision.
 
+> **Update (later 2026-07-12): RATIFIED and committed as the default.** The seat split is no
+> longer an env-gated override — it is the shipped default: the paper-clerk demo player was
+> defaulted to it (paper-eyes `6505c87`) and the composed-chain seeded copies carry it
+> (`be8721d`), and Receipt 3 verifies the split committed verbatim in deckhand's
+> `examples/relay-demo/{doc-router,digest-clerk}/config.yaml` (`model_id: gemma4-26b`,
+> `critic_model_id: qwen36-workhorse`, `disable_thinking: true`).
+
 ## Endpoint weather (context for the timings)
 
 Four earlier all-night attempts failed with client timeouts while another session's

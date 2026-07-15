@@ -11,10 +11,12 @@ Per-form-type calibration — region locators, VLM prompts, the extraction schem
 docs — is pure YAML data called a **formpack**. Adding a form family is a data change, never a
 code change.
 
-> Status: mid build. Stages 0-4 are in place — scaffold + config-as-data, the synthetic
+> Status: Stages 0-4 are in place — scaffold + config-as-data, the synthetic
 > corpus, the pipeline core (`papereyes run`), the extraction gate (`papereyes gate`), and the
 > watch/emit daemon (`papereyes watch`) with the shipped `examples/paper-clerk` deckhand agent and
-> the `demo/` compose (`demo/verify_e2e.sh`). The composed multi-lane demo lands post-Stage-4.
+> the `demo/` compose (`demo/verify_e2e.sh`). The composed multi-lane demo (paper-eyes → doc-router
+> → relay → digest-clerk, `demo/verify_chain.sh`) has shipped too: `--stub` runs in CI and `--live`
+> passed cold end-to-end on real models (see `docs/live-receipts-2026-07-12.md`).
 
 ## The shape
 
